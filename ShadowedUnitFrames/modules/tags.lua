@@ -215,26 +215,89 @@ function ShadowUF:Hex(r, g, b)
 	return string.format("|cff%02x%02x%02x", r * 255, g * 255, b * 255)
 end
 
-function ShadowUF:FormatLargeNumber(number)
-	if( number < 9999 ) then
-		return number
-	elseif( number < 999999 ) then
-		return string.format("%.1fk", number / 1000)
-	elseif( number < 99999999 ) then
-		return string.format("%.2fm", number / 1000000)
+-- hypehuman: splits an integer into three parts, the middle one being a nice nonnegative integer that we can deal with. The first is the sign and the last is the decimal.
+function ShadowUF:SplitDecimal(input)
+	local sign, pos
+	if input<0 then
+		sign = "-"
+		pos = tostring(-input)
+	else
+		sign = ""
+		pos = tostring(input)
 	end
-	
-	return string.format("%dm", number / 1000000)
+	local decLoc = string.find(pos, "%.")
+	if (decLoc) then
+		whole = string.sub(pos, 1, decLoc-1)
+		fract = string.sub(pos, decLoc)
+	else
+		whole = pos
+		fract = ""
+	end
+	return sign, whole+0, fract
 end
 
-function ShadowUF:SmartFormatNumber(number)
-	if( number < 999999 ) then
-		return number
-	elseif( number < 99999999 ) then
-		return string.format("%.2fm", number / 1000000)
+-- hypehuman: adds commas between thousands, millions, etc
+-- I entered this function on many of the returns from the functions in Tags.defaultTags
+function ShadowUF:AddCommas(input)
+	local sign, whole, fract = ShadowUF:SplitDecimal(input)
+	local whole = string.gsub(whole, "(%d)(%d%d%d)$", "%1,%2", 1)
+	local found
+	while true do
+		whole, found = string.gsub(whole, "(%d)(%d%d%d),", "%1,%2,", 1)
+		if found == 0 then break end
 	end
-	
-	return string.format("%dm", number / 1000000)
+	return sign..whole..fract
+end
+
+-- modified by hypehuman to:
+-- always show 3 sig figs when >=1000
+-- include commas
+function ShadowUF:FormatLargeNumber(number)
+	local sign, whole, number = ShadowUF:SplitDecimal(number)
+	if ( whole < 100 ) then
+		return sign..whole..number
+	elseif ( whole < 1000 ) then
+		return sign..whole
+	elseif ( whole < 1e4) then
+		local thousands = string.sub(whole, 1,1)
+		local ones = string.sub(whole, 2,4)
+		return sign..thousands..","..ones
+	end
+
+	local suffix, power
+	if( whole < 1e6 ) then
+		power = 1000
+		suffix = "k"
+	elseif ( whole < 1e9 ) then
+		power = 1e6
+		suffix = "M"
+	elseif ( whole < 1e12 ) then
+		power = 1e9
+		suffix = "G"
+	else
+		power = 1e12
+		suffix = "T"
+	end
+	whole = whole / power
+
+	if ( whole<10 ) then
+		whole = string.format("%.2f", whole) -- X.XX
+	elseif ( whole<100 ) then
+		whole = string.format("%.1f", whole) -- XX.X
+	else
+		whole = string.format("%.0f", whole) -- XXX
+	end
+
+	return sign..whole..suffix
+end
+
+-- modified by hypehuman:
+function ShadowUF:SmartFormatNumber(number)
+	if ( number < 1e9 ) then
+		return ShadowUF:AddCommas(number)
+	else
+		return ShadowUF:FormatLargeNumber(number)
+	end
 end
 
 function ShadowUF:GetClassColor(unit)
@@ -516,7 +579,7 @@ Tags.defaultTags = {
 			return ShadowUF.L["Offline"]
 		end
 		
-		return string.format("%s/%s", UnitHealth(unit), UnitHealthMax(unit))
+		return string.format("%s/%s", ShadowUF:AddCommas(UnitHealth(unit)), ShadowUF:AddCommas(UnitHealthMax(unit))) -- hypehuman
 	end]],
 	["abscurhp"] = [[function(unit, unitOwner)
 		if( UnitIsDead(unit) ) then
@@ -527,9 +590,9 @@ Tags.defaultTags = {
 			return ShadowUF.L["Offline"]
 		end
 		
-		return UnitHealth(unit)
+		return ShadowUF:AddCommas(UnitHealth(unit)) -- hypehuman
 	end]],
-	["absmaxhp"] = [[function(unit, unitOwner) return UnitHealthMax(unit) end]],
+	["absmaxhp"] = [[function(unit, unitOwner) return ShadowUF:AddCommas(UnitHealthMax(unit)) end]], -- hypehuman
 	["abscurpp"] = [[function(unit, unitOwner)
 		if( UnitPowerMax(unit) <= 0 ) then
 			return nil
@@ -537,7 +600,7 @@ Tags.defaultTags = {
 			return 0
 		end	
 	
-		return UnitPower(unit)
+		return ShadowUF:AddCommas(UnitPower(unit)) -- hypehuman
 	end]],
 	["absmaxpp"] = [[function(unit, unitOwner)
 		local power = UnitPowerMax(unit)
@@ -547,7 +610,7 @@ Tags.defaultTags = {
 		local maxPower = UnitPowerMax(unit)
 		local power = UnitPower(unit)
 		if( UnitIsDeadOrGhost(unit) ) then
-			return string.format("0/%s", maxPower)
+			return string.format("0/%s", ShadowUF:AddCommas(maxPower)) -- hypehuman
 		elseif( maxPower <= 0 ) then
 			return nil
 		end
@@ -742,7 +805,7 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
 		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
-		return UnitPower(unit, 0)
+		return ShadowUF:AddCommas(UnitPower(unit, 0)) -- hypehuman
 	end]],
 	["druid:curmaxpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
@@ -763,10 +826,10 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
 		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
-		return UnitPower(unit, 0)
+		return ShadowUF:AddCommas(UnitPower(unit, 0)) -- hypehuman
 	end]],
 	["abs:incheal"] = [[function(unit, unitOwner, fontString)
-		return fontString.incoming and string.format("%d", fontString.incoming)
+		return fontString.incoming and ShadowUF:AddCommas(fontString.incoming) -- hypehuman
 	end]],
 	["incheal"] = [[function(unit, unitOwner, fontString)
 		return fontString.incoming and ShadowUF:FormatLargeNumber(fontString.incoming) or nil

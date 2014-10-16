@@ -77,11 +77,15 @@ function Highlight:OnEnable(frame)
 		frame:RegisterUpdateFunc(self, "UpdateThreat")
 	end
 	
-	if( ShadowUF.db.profile.units[frame.unitType].highlight.attention and frame.unitType ~= "target" and frame.unitType ~= "focus" ) then
-		frame:RegisterNormalEvent("PLAYER_TARGET_CHANGED", self, "UpdateAttention")
-		frame:RegisterNormalEvent("PLAYER_FOCUS_CHANGED", self, "UpdateAttention")
-		frame:RegisterUpdateFunc(self, "UpdateAttention")
+	if( ShadowUF.db.profile.units[frame.unitType].highlight.target and frame.unitType ~= "target" ) then -- hypehuman
+		frame:RegisterNormalEvent("PLAYER_TARGET_CHANGED", self, "UpdateTarget") -- hypehuman
+		frame:RegisterUpdateFunc(self, "UpdateTarget") -- hypehuman
 	end
+
+	if( ShadowUF.db.profile.units[frame.unitType].highlight.focus and frame.unitType ~= "focus" ) then -- hypehuman
+		frame:RegisterNormalEvent("PLAYER_FOCUS_CHANGED", self, "UpdateFocus") -- hypehuman
+		frame:RegisterUpdateFunc(self, "UpdateFocus") -- hypehuman
+	end -- hypehuman
 
 	if( ShadowUF.db.profile.units[frame.unitType].highlight.debuff ) then
 		frame:RegisterNormalEvent("UNIT_AURA", self, "UpdateAura")
@@ -109,7 +113,8 @@ function Highlight:OnDisable(frame)
 	
 	frame.highlight.hasDebuff = nil
 	frame.highlight.hasThreat = nil
-	frame.highlight.hasAttention = nil
+	frame.highlight.hasTarget = nil -- hypehuman
+	frame.highlight.hasFocus = nil -- hypehuman
 	frame.highlight.hasMouseover = nil
 
 	frame.highlight:Hide()
@@ -121,7 +126,7 @@ function Highlight:Update(frame)
 		color = DebuffTypeColor[frame.highlight.hasDebuff]
 	elseif( frame.highlight.hasThreat ) then
 		color = ShadowUF.db.profile.healthColors.hostile
-	elseif( frame.highlight.hasAttention ) then
+	elseif( frame.highlight.hasTarget or frame.highlight.hasFocus ) then -- hypehuman
 		color = goldColor
 	elseif( frame.highlight.hasMouseover ) then
 		color = mouseColor
@@ -143,10 +148,15 @@ function Highlight:UpdateThreat(frame)
 	self:Update(frame)
 end
 
-function Highlight:UpdateAttention(frame)
-	frame.highlight.hasAttention = UnitIsUnit(frame.unit, "target") or UnitIsUnit(frame.unit, "focus") or nil
+function Highlight:UpdateTarget(frame) -- hypehuman
+	frame.highlight.hasTarget = UnitIsUnit(frame.unit, "target") or nil -- hypehuman
 	self:Update(frame)
 end
+
+function Highlight:UpdateFocus(frame) -- hypehuman
+	frame.highlight.hasFocus = UnitIsUnit(frame.unit, "focus") or nil -- hypehuman
+	self:Update(frame) -- hypehuman
+end -- hypehuman
 
 function Highlight:UpdateAura(frame)
 	-- In theory, we don't need aura scanning because the first debuff returned is always one we can cure... in theory
