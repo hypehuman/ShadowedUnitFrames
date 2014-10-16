@@ -2585,13 +2585,21 @@ local function loadUnitOptions()
 								arg = "highlight.mouseover",
 								hidden = false,
 							},
-							attention = {
+							target = { -- hypehuman
 								order = 4,
 								type = "toggle",
-								name = L["For target/focus"],
-								desc = L["Highlight units that you are targeting or have focused."],
-								arg = "highlight.attention",
-								hidden = function(info) return info[2] == "target" or info[2] == "focus" end,
+								name = L["For target"], -- hypehuman
+								desc = L["Highlight units that you are targeting."], -- hypehuman
+								arg = "highlight.target", -- hypehuman
+								hidden = function(info) return info[2] == "target" end, -- hypehuman
+							},
+							focus = { -- hypehuman
+								order = 4.5, -- hypehuman
+								type = "toggle", -- hypehuman
+								name = L["For focus"], -- hypehuman
+								desc = L["Highlight units that you have focused."], -- hypehuman
+								arg = "highlight.focus", -- hypehuman
+								hidden = function(info) return info[2] == "focus" end, -- hypehuman
 							},
 							aggro = {
 								order = 5,
@@ -4088,7 +4096,7 @@ local function loadUnitOptions()
 								type = "range",
 								name = L["Outside bar limit"],
 								desc = L["Percentage value of how far outside the unit frame the incoming absorb bar can go. 130% means it will go 30% outside the frame, 100% means it will not go outside."],
-								min = 1, max = 1.50, step = 0.05, isPercent = true,
+								min = 1, max = 1000, step = 0.05, isPercent = true,
 								arg = "incAbsorb.cap",
 								hidden = false,
 							},
