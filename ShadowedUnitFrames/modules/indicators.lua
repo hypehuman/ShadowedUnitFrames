@@ -1,11 +1,24 @@
-local Indicators = {list = {"status", "pvp", "leader", "resurrect", "masterLoot", "raidTarget", "ready", "role", "lfdRole", "class", "phase", "questBoss", "petBattle"}}
+local Indicators = {list = {"status", "pvp", "leader", "resurrect", "masterLoot", "raidTarget", "ready", "role", "lfdRole", "class", "phase", "questBoss", "petBattle", "arenaSpec"}}
 
 ShadowUF:RegisterModule(Indicators, "indicators", ShadowUF.L["Indicators"])
+
+function Indicators:UpdateArenaSpec(frame)
+	if( not frame.indicators.arenaSpec or not frame.indicators.arenaSpec.enabled ) then return end
+
+	local specID = GetArenaOpponentSpec(frame.unitID)
+	local specIcon = specID and select(4, GetSpecializationInfoByID(specID))
+	if( specIcon ) then
+		frame.indicators.arenaSpec:SetTexture(specIcon)
+		frame.indicators.arenaSpec:Show()
+	else
+		frame.indicators.arenaSpec:Hide()
+	end
+end
 
 function Indicators:UpdateClass(frame)
 	if( not frame.indicators.class or not frame.indicators.class.enabled ) then return end
 	
-	local class = select(2, UnitClass(frame.unit))
+	local class = frame:UnitClassToken()
 	if( UnitIsPlayer(frame.unit) and class ) then
 		local coords = CLASS_BUTTONS[class]
 		frame.indicators.class:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
@@ -75,7 +88,14 @@ end
 function Indicators:UpdateLFDRole(frame, event)
 	if( not frame.indicators.lfdRole or not frame.indicators.lfdRole.enabled ) then return end
 	
-	local role = UnitGroupRolesAssigned(frame.unitOwner)
+	local role
+	if( frame.unitType ~= "arena" ) then
+		role = UnitGroupRolesAssigned(frame.unitOwner)
+	else
+		local specID = GetArenaOpponentSpec(frame.unitID)
+		role = specID and select(6, GetSpecializationInfoByID(specID))
+	end
+
 	if( role == "TANK" ) then
 		frame.indicators.lfdRole:SetTexCoord(0, 19/64, 22/64, 41/64)
 		frame.indicators.lfdRole:Show()
@@ -301,6 +321,12 @@ function Indicators:OnEnable(frame)
 		frame.indicators:SetScript("OnUpdate", nil)
 	end
 
+	if( config.indicators.arenaSpec and config.indicators.arenaSpec.enabled ) then
+		frame:RegisterUnitEvent("ARENA_OPPONENT_UPDATE", self, "UpdateArenaSpec")
+		frame:RegisterUpdateFunc(self, "UpdateArenaSpec")
+        frame.indicators.arenaSpec = frame.indicators.arenaSpec or frame.indicators:CreateTexture(nil, "OVERLAY")
+	end
+
 	if( config.indicators.phase and config.indicators.phase.enabled ) then
 		-- Player phase changes do not generate a phase change event. This seems to be the best
 		frame:RegisterNormalEvent("UPDATE_WORLD_STATES", self, "UpdatePhase")
@@ -310,6 +336,7 @@ function Indicators:OnEnable(frame)
 	
 	if( config.indicators.resurrect and config.indicators.resurrect.enabled ) then
 	    frame:RegisterNormalEvent("INCOMING_RESURRECT_CHANGED", self, "UpdateResurrect")
+	    frame:RegisterNormalEvent("UNIT_OTHER_PARTY_CHANGED", self, "UpdateResurrect")
 	    frame:RegisterUpdateFunc(self, "UpdateResurrect")
 	    
 	    frame.indicators.resurrect = frame.indicators.resurrect or frame.indicators:CreateTexture(nil, "OVERLAY")

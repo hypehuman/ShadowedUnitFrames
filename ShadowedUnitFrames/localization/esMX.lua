@@ -37,6 +37,7 @@ L["Are you sure you want to delete this tag?"] = "¿Estás seguro(a) que quieres
 L["Are you sure you want to delete this text? All settings for it will be deleted."] = "¿Estás seguro(a) que quieres borrar este texto?  Todas sus configuraciones se borrará."
 L["Ascending"] = "Ascendiendo"
 L["Aura border style"] = "Estilo del borde de las auras."
+L["Aura filters"] = "Filtros de las auras."
 L["Aura name"] = "Nombre de la aura."
 L["Auras"] = "Auras."
 L["Aura types to filter"] = "Tipos de auras para filtrar."
