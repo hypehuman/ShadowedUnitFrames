@@ -1,0 +1,12 @@
+tag v4.0.4
+a102f690d4b0f7cefdf5411983b771db7bc949e6
+Shadowed <shadowed.wow@gmail.com>
+2014-10-15 22:11:35 -0700
+
+Tagging as release v4.0.4
+
+
+--------------------
+
+Shadowed:
+	- Fixed cooldown rings not showing up
