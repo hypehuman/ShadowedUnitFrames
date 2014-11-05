@@ -291,7 +291,7 @@ function ShadowUF:Hex(r, g, b)
 	return string.format("|cff%02x%02x%02x", r * 255, g * 255, b * 255)
 end
 
--- hypehuman: splits an integer into three parts, the middle one being a nice nonnegative integer that we can deal with. The first is the sign and the last is the decimal.
+-- splits an integer into three parts, the middle one being a nice nonnegative integer that we can deal with. The first is the sign and the last is the decimal.
 function ShadowUF:SplitDecimal(input)
 	local sign, pos
 	if input<0 then
@@ -312,8 +312,7 @@ function ShadowUF:SplitDecimal(input)
 	return sign, whole+0, fract
 end
 
--- hypehuman: adds commas between thousands, millions, etc
--- I entered this function on many of the returns from the functions in Tags.defaultTags
+-- adds commas between thousands, millions, etc
 function ShadowUF:AddCommas(input)
 	local sign, whole, fract = ShadowUF:SplitDecimal(input)
 	local whole = string.gsub(whole, "(%d)(%d%d%d)$", "%1,%2", 1)
@@ -325,9 +324,8 @@ function ShadowUF:AddCommas(input)
 	return sign..whole..fract
 end
 
--- modified by hypehuman to:
--- always show 3 sig figs when >=1000
--- include commas
+-- If a |x| >= 1000, returns a string with 3 sig figs and a suffix to tell the power
+-- Otherwise, leaves the number intact
 function ShadowUF:FormatLargeNumber(number)
 	local sign, whole, number = ShadowUF:SplitDecimal(number)
 	if ( whole < 100 ) then
@@ -367,7 +365,6 @@ function ShadowUF:FormatLargeNumber(number)
 	return sign..whole..suffix
 end
 
--- modified by hypehuman:
 function ShadowUF:SmartFormatNumber(number)
 	if ( number < 1e9 ) then
 		return ShadowUF:AddCommas(number)
@@ -662,7 +659,7 @@ Tags.defaultTags = {
 			return ShadowUF.L["Offline"]
 		end
 		
-		return string.format("%s/%s", ShadowUF:AddCommas(UnitHealth(unit)), ShadowUF:AddCommas(UnitHealthMax(unit))) -- hypehuman
+		return string.format("%s/%s", ShadowUF:AddCommas(UnitHealth(unit)), ShadowUF:AddCommas(UnitHealthMax(unit)))
 	end]],
 	["abscurhp"] = [[function(unit, unitOwner)
 		if( UnitIsDead(unit) ) then
@@ -673,9 +670,9 @@ Tags.defaultTags = {
 			return ShadowUF.L["Offline"]
 		end
 		
-		return ShadowUF:AddCommas(UnitHealth(unit)) -- hypehuman
+		return ShadowUF:AddCommas(UnitHealth(unit))
 	end]],
-	["absmaxhp"] = [[function(unit, unitOwner) return ShadowUF:AddCommas(UnitHealthMax(unit)) end]], -- hypehuman
+	["absmaxhp"] = [[function(unit, unitOwner) return ShadowUF:AddCommas(UnitHealthMax(unit)) end]],
 	["abscurpp"] = [[function(unit, unitOwner)
 		if( UnitPowerMax(unit) <= 0 ) then
 			return nil
@@ -683,7 +680,7 @@ Tags.defaultTags = {
 			return 0
 		end	
 	
-		return ShadowUF:AddCommas(UnitPower(unit)) -- hypehuman
+		return ShadowUF:AddCommas(UnitPower(unit))
 	end]],
 	["absmaxpp"] = [[function(unit, unitOwner)
 		local power = UnitPowerMax(unit)
@@ -693,7 +690,7 @@ Tags.defaultTags = {
 		local maxPower = UnitPowerMax(unit)
 		local power = UnitPower(unit)
 		if( UnitIsDeadOrGhost(unit) ) then
-			return string.format("0/%s", ShadowUF:AddCommas(maxPower)) -- hypehuman
+			return string.format("0/%s", ShadowUF:AddCommas(maxPower))
 		elseif( maxPower <= 0 ) then
 			return nil
 		end
@@ -955,7 +952,7 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
 		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
-		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA)) -- hypehuman
+		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA))
 	end]],
 	["druid:curmaxpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
@@ -981,7 +978,7 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
 
-		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA)) -- hypehuman
+		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA))
 	end]],
 	["monk:curpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "MONK" ) then return nil end
@@ -1022,7 +1019,7 @@ Tags.defaultTags = {
 	end]],
 	["abs:incheal"] = [[function(unit, unitOwner, fontString)
 	    local heal = UnitGetIncomingHeals(unit) 
-		return heal and heal > 0 and ShadowUF:AddCommas(heal) -- hypehuman
+		return heal and heal > 0 and ShadowUF:AddCommas(heal)
 	end]],
 	["incheal"] = [[function(unit, unitOwner, fontString)
 	    local heal = UnitGetIncomingHeals(unit)

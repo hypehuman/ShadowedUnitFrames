@@ -80,21 +80,21 @@ function Highlight:OnEnable(frame)
 		frame:RegisterUpdateFunc(self, "UpdateThreat")
 	end
 	
-	if( ShadowUF.db.profile.units[frame.unitType].highlight.target and frame.unitType ~= "target" ) then -- hypehuman
-		frame:RegisterNormalEvent("PLAYER_TARGET_CHANGED", self, "UpdateTarget") -- hypehuman
-		frame:RegisterUpdateFunc(self, "UpdateTarget") -- hypehuman
+	if( ShadowUF.db.profile.units[frame.unitType].highlight.target and frame.unitType ~= "target" ) then
+		frame:RegisterNormalEvent("PLAYER_TARGET_CHANGED", self, "UpdateTarget")
+		frame:RegisterUpdateFunc(self, "UpdateTarget")
 	end
 
-	if( ShadowUF.db.profile.units[frame.unitType].highlight.focus and frame.unitType ~= "focus" ) then -- hypehuman
-		frame:RegisterNormalEvent("PLAYER_FOCUS_CHANGED", self, "UpdateFocus") -- hypehuman
-		frame:RegisterUpdateFunc(self, "UpdateFocus") -- hypehuman
-	end -- hypehuman
+	if( ShadowUF.db.profile.units[frame.unitType].highlight.focus and frame.unitType ~= "focus" ) then
+		frame:RegisterNormalEvent("PLAYER_FOCUS_CHANGED", self, "UpdateFocus")
+		frame:RegisterUpdateFunc(self, "UpdateFocus")
+	end
 
 	if( ShadowUF.db.profile.units[frame.unitType].highlight.debuff ) then
 		frame:RegisterNormalEvent("UNIT_AURA", self, "UpdateAura")
 		frame:RegisterUpdateFunc(self, "UpdateAura")
 	end
-	
+
 	if( ShadowUF.db.profile.units[frame.unitType].highlight.mouseover and not frame.highlight.OnEnter ) then
 		frame.highlight.OnEnter = frame.OnEnter
 		frame.highlight.OnLeave = frame.OnLeave
@@ -106,7 +106,7 @@ function Highlight:OnEnable(frame)
 	if( ShadowUF.db.profile.units[frame.unitType].highlight.rareMob or ShadowUF.db.profile.units[frame.unitType].highlight.eliteMob ) then
 		frame:RegisterUnitEvent("UNIT_CLASSIFICATION_CHANGED", self, "UpdateClassification")
 		frame:RegisterUpdateFunc(self, "UpdateClassification")
-end
+	end
 end
 
 function Highlight:OnLayoutApplied(frame)
@@ -121,8 +121,8 @@ function Highlight:OnDisable(frame)
 	
 	frame.highlight.hasDebuff = nil
 	frame.highlight.hasThreat = nil
-	frame.highlight.hasTarget = nil -- hypehuman
-	frame.highlight.hasFocus = nil -- hypehuman
+	frame.highlight.hasTarget = nil
+	frame.highlight.hasFocus = nil
 	frame.highlight.hasMouseover = nil
 
 	frame.highlight:Hide()
@@ -142,7 +142,7 @@ function Highlight:Update(frame)
 		color = DebuffTypeColor[frame.highlight.hasDebuff] or DebuffTypeColor[""]
 	elseif( frame.highlight.hasThreat ) then
 		color = ShadowUF.db.profile.healthColors.hostile
-	elseif( frame.highlight.hasTarget or frame.highlight.hasFocus ) then -- hypehuman
+	elseif( frame.highlight.hasTarget or frame.highlight.hasFocus ) then
 		color = goldColor
 	elseif( frame.highlight.hasMouseover ) then
 		color = mouseColor
@@ -151,7 +151,7 @@ function Highlight:Update(frame)
 	elseif( ShadowUF.db.profile.units[frame.unitType].highlight.eliteMob and frame.highlight.hasClassification == "elite" ) then
 		color = eliteColor
 	end
-		
+
 	if( color ) then
 		frame.highlight.top:SetVertexColor(color.r, color.g, color.b, ShadowUF.db.profile.units[frame.unitType].highlight.alpha)
 		frame.highlight.left:SetVertexColor(color.r, color.g, color.b, ShadowUF.db.profile.units[frame.unitType].highlight.alpha)
@@ -168,15 +168,15 @@ function Highlight:UpdateThreat(frame)
 	self:Update(frame)
 end
 
-function Highlight:UpdateTarget(frame) -- hypehuman
-	frame.highlight.hasTarget = UnitIsUnit(frame.unit, "target") or nil -- hypehuman
+function Highlight:UpdateTarget(frame)
+	frame.highlight.hasTarget = UnitIsUnit(frame.unit, "target") or nil
 	self:Update(frame)
 end
 
-function Highlight:UpdateFocus(frame) -- hypehuman
-	frame.highlight.hasFocus = UnitIsUnit(frame.unit, "focus") or nil -- hypehuman
-	self:Update(frame) -- hypehuman
-end -- hypehuman
+function Highlight:UpdateFocus(frame)
+	frame.highlight.hasFocus = UnitIsUnit(frame.unit, "focus") or nil
+	self:Update(frame)
+end
 
 function Highlight:UpdateClassification(frame)
 	frame.highlight.hasClassification = UnitClassification(frame.unit)

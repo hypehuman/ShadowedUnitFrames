@@ -2756,21 +2756,21 @@ local function loadUnitOptions()
 								arg = "highlight.mouseover",
 								hidden = false,
 							},
-							target = { -- hypehuman
+							target = {
 								order = 4,
 								type = "toggle",
-								name = L["For target"], -- hypehuman
-								desc = L["Highlight units that you are targeting."], -- hypehuman
-								arg = "highlight.target", -- hypehuman
-								hidden = function(info) return info[2] == "target" end, -- hypehuman
+								name = L["For target"],
+								desc = L["Highlight units that you are targeting."],
+								arg = "highlight.target",
+								hidden = function(info) return info[2] == "target" end,
 							},
-							focus = { -- hypehuman
-								order = 4.5, -- hypehuman
-								type = "toggle", -- hypehuman
-								name = L["For focus"], -- hypehuman
-								desc = L["Highlight units that you have focused."], -- hypehuman
-								arg = "highlight.focus", -- hypehuman
-								hidden = function(info) return info[2] == "focus" end, -- hypehuman
+							focus = {
+								order = 4.5,
+								type = "toggle",
+								name = L["For focus"],
+								desc = L["Highlight units that you have focused."],
+								arg = "highlight.focus",
+								hidden = function(info) return info[2] == "focus" end,
 							},
 							aggro = {
 								order = 5,
