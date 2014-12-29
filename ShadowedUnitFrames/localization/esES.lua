@@ -235,7 +235,6 @@ L["Group number"] = "Numero de grupo " -- Needs review
 L["Groups"] = "Grupos" -- Needs review
 L["Groups to show"] = "Grupos a mostrar" -- Needs review
 L["Growth"] = "Crecimiento" -- Needs review
-L["Guardian bar"] = "Barra de Guardian" -- Needs review
 L["Guild name"] = "Nombre de Hermandad" -- Needs review
 L["Half health"] = "Salud media" -- Needs review
 L["Has Aggro"] = "Tiene Aggro"
