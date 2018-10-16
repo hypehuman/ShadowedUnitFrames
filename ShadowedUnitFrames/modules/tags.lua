@@ -291,7 +291,7 @@ function ShadowUF:Hex(r, g, b)
 	return string.format("|cff%02x%02x%02x", r * 255, g * 255, b * 255)
 end
 
--- splits an integer into three parts, the middle one being a nice nonnegative integer that we can deal with. The first is the sign and the last is the decimal.
+-- splits a number into three parts, the middle one being a nice nonnegative integer that we can deal with. The first is the sign and the last is the decimal.
 function ShadowUF:SplitDecimal(input)
 	local sign, pos
 	if input<0 then
