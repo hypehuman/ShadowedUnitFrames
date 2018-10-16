@@ -1,5 +1,5 @@
 local Fader = {}
-local powerDepletes = {[SPELL_POWER_MANA] = true, [SPELL_POWER_ENERGY] = true, [SPELL_POWER_FOCUS] = true}
+local powerDepletes = {[Enum.PowerType.Mana] = true, [Enum.PowerType.Energy] = true, [Enum.PowerType.Focus] = true}
 ShadowUF:RegisterModule(Fader, "fader", ShadowUF.L["Combat fader"])
 
 -- TODO: Remove once Blizzard fixes cooldown wheels not taking parents alpha
@@ -122,7 +122,7 @@ end
 
 
 local activeCastID
-function Fader:CastStart(frame, event, unit, spellName, spellRank, id)
+function Fader:CastStart(frame, event, unit, id)
 	if( unit ~= "player" or activeCastID == id ) then return end
 	activeCastID = id
 	
@@ -130,7 +130,7 @@ function Fader:CastStart(frame, event, unit, spellName, spellRank, id)
 	self:Update(frame)
 end
 
-function Fader:CastStop(frame, event, unit, spellName, spellRank, id)
+function Fader:CastStop(frame, event, unit, id)
 	if( unit ~= "player" or activeCastID ~= id ) then return end
 	activeCastID = nil
 	

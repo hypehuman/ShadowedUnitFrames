@@ -87,7 +87,7 @@ function Highlight:OnEnable(frame)
 	end
 
 	if( ShadowUF.db.profile.units[frame.unitType].highlight.debuff ) then
-		frame:RegisterNormalEvent("UNIT_AURA", self, "UpdateAura")
+		frame:RegisterUnitEvent("UNIT_AURA", self, "UpdateAura")
 		frame:RegisterUpdateFunc(self, "UpdateAura")
 	end
 
@@ -179,7 +179,7 @@ function Highlight:UpdateAura(frame)
 		local id = 0
 		while( true ) do
 			id = id + 1
-			local name, _, _, _, auraType = UnitDebuff(frame.unit, id)
+			local name, _, _, auraType = UnitDebuff(frame.unit, id)
 			if( not name ) then break end
 			if( auraType == "" ) then auraType = "Enrage" end
 			

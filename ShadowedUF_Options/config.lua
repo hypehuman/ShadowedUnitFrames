@@ -229,7 +229,7 @@ local function setVariable(unit, moduleKey, moduleSubKey, key, value)
 end
 
 local function specialRestricted(unit, moduleKey, moduleSubKey, key)
-	if( ShadowUF.fakeUnits[unit] and ( key == "colorAggro" or key == "aggro" or moduleKey == "incHeal" or moduleKey == "healAbsorb" or moduleKey == "incAbsorb" or moduleKey == "castBar" ) ) then
+	if( ShadowUF.fakeUnits[unit] and ( key == "colorAggro" or key == "aggro" or key == "colorDispel" or moduleKey == "incHeal" or moduleKey == "healAbsorb" or moduleKey == "incAbsorb" or moduleKey == "castBar" ) ) then
 		return true
 	elseif( moduleKey == "healthBar" and unit == "player" and key == "reaction" ) then
 		return true
@@ -313,7 +313,7 @@ local function hideRestrictedOption(info)
 	elseif( ( key == "incHeal" and not ShadowUF.modules.incHeal ) or ( key == "incAbsorb" and not ShadowUF.modules.incAbsorb ) or ( key == "healAbsorb" and not ShadowUF.modules.healAbsorb ) )  then
 		return true
 	-- Non-standard units do not support color by aggro or incoming heal
-	elseif( key == "colorAggro" or key == "incHeal" or key == "incAbsorb" or key == "aggro" ) then
+	elseif( key == "colorAggro" or key == "colorDispel" or key == "incHeal" or key == "incAbsorb" or key == "aggro" ) then
 		return string.match(unit, "%w+target" )
 	-- Fall back for indicators, no variable table so it shouldn't be shown
 	elseif( info[#(info) - 1] == "indicators" ) then
@@ -355,6 +355,45 @@ Config.hideBasicOption = hideBasicOption
 --------------------
 -- GENERAL CONFIGURATION
 ---------------------
+
+local function writeTable(tbl)
+	local data = ""
+	for key, value in pairs(tbl) do
+		local valueType = type(value)
+
+		-- Wrap the key in brackets if it's a number
+		if( type(key) == "number" ) then
+			key = string.format("[%s]", key)
+		-- Wrap the string with quotes if it has a space in it
+		elseif( string.match(key, "[%p%s%c]") or string.match(key, "^[0-9]+$") ) then
+			key = string.format("['%s']", string.gsub(key, "'", "\\'"))
+		end
+
+		-- foo = {bar = 5}
+		if( valueType == "table" ) then
+			data = string.format("%s%s=%s;", data, key, writeTable(value))
+		-- foo = true / foo = 5
+		elseif( valueType == "number" or valueType == "boolean" ) then
+			data = string.format("%s%s=%s;", data, key, tostring(value))
+		-- foo = "bar"
+		else
+			value = tostring(value)
+			if value and string.match(value, "[\n]") then
+				local token = ""
+				while string.find(value, "%["..token.."%[") or string.find(value, "%]"..token.."%]") do
+					token = token .. "="
+				end
+				value = string.format("[%s[%s]%s]", token, value, token)
+			else
+				value = string.format("%q", value)
+			end
+			data = string.format("%s%s=%s;", data, key, value)
+		end
+	end
+
+	return "{" .. data .. "}"
+end
+
 local function loadGeneralOptions()
 	SML = SML or LibStub:GetLibrary("LibSharedMedia-3.0")
 	
@@ -469,10 +508,9 @@ local function loadGeneralOptions()
 		ShadowUF.db.profile.range[info[#(info)] .. playerClass] = spell and spell ~= "" and spell or nil
 		ShadowUF.Layout:Reload()
 	end
-	
+
 	local function getRange(info)
-		local spell = ShadowUF.db.profile.range[info[#(info)] .. playerClass]
-		return spell and spell ~= "" and spell or ShadowUF.modules.range[info[#(info)]][playerClass]
+		return ShadowUF.db.profile.range[info[#(info)] .. playerClass]
 	end
 
 	local function rangeWithIcon(info)
@@ -491,35 +529,7 @@ local function loadGeneralOptions()
 	end
 
 	local textData = {}
-	
-	local function writeTable(tbl)
-		local data = ""
-		for key, value in pairs(tbl) do
-			local valueType = type(value)
-			
-			-- Wrap the key in brackets if it's a number
-			if( type(key) == "number" ) then
-				key = string.format("[%s]", key)
-			-- Wrap the string with quotes if it has a space in it
-			elseif( string.match(key, "[%p%s%c]") or string.match(key, "^[0-9]+$") ) then
-				key = string.format("['%s']", string.gsub(key, "'", "\\'"))
-			end
-			
-			-- foo = {bar = 5}
-			if( valueType == "table" ) then
-				data = string.format("%s%s=%s;", data, key, writeTable(value))
-			-- foo = true / foo = 5
-			elseif( valueType == "number" or valueType == "boolean" ) then
-				data = string.format("%s%s=%s;", data, key, tostring(value))
-			-- foo = "bar"
-			else
-				data = string.format("%s%s='%s';", data, key, string.gsub(tostring(value), "'", "\\'"))
-			end
-		end
-		
-		return "{" .. data .. "}"
-	end
-		
+
 	local layoutData = {positions = true, visibility = true, modules = false}
 	local layoutManager = {
 		type = "group",
@@ -701,27 +711,34 @@ local function loadGeneralOptions()
 								end,
 								arg = "locked",
 							},
-							sep = {
-								order = 1.5,
-								type = "description",
-								name = "",
-								width = "full",
-								hidden = hideAdvancedOption,
-							},
 							advanced = {
-								order = 2,
+								order = 1.5,
 								type = "toggle",
 								name = L["Advanced"],
 								desc = L["Enabling advanced settings will give you access to more configuration options. This is meant for people who want to tweak every single thing, and should not be enabled by default as it increases the options."],
 								arg = "advanced",
 							},
+							sep = {
+								order = 2,
+								type = "description",
+								name = "",
+								width = "full",
+							},
 							omnicc = {
 								order = 2.5,
 								type = "toggle",
-								name = L["Disable OmniCC"],
-								desc = L["Disables showing OmniCC timers in all Shadowed Unit Frame auras."],
+								name = L["Disable OmniCC Cooldown Count"],
+								desc = L["Disables showing Cooldown Count timers in all Shadowed Unit Frame auras."],
 								arg = "omnicc",
-								hidden = hideAdvancedOption,
+								width = "double",
+							},
+							blizzardcc = {
+								order = 2.5,
+								type = "toggle",
+								name = L["Disable Blizzard Cooldown Count"],
+								desc = L["Disables showing Cooldown Count timers in all Shadowed Unit Frame auras."],
+								arg = "blizzardcc",
+								width = "double",
 							},
 							hideCombat = {
 								order = 3,
@@ -729,6 +746,13 @@ local function loadGeneralOptions()
 								name = L["Hide tooltips in combat"],
 								desc = L["Prevents unit tooltips from showing while in combat."],
 								arg = "tooltipCombat",
+								width = "double",
+							},
+							sep2 = {
+								order = 3.5,
+								type = "description",
+								name = "",
+								width = "full",
 							},
 							auraBorder = {
 								order = 5,
@@ -1129,21 +1153,12 @@ local function loadGeneralOptions()
 								name = L["Runic Power"],
 								arg = "powerColors.RUNIC_POWER",
 							},
-							ECLIPSE_MOON = {
+							RUNES = {
 								order = 7,
 								type = "color",
-								name = L["Eclipse (Moon)"],
-								desc = L["Bar coloring for the moon portion of the eclipse bar."],
-								hidden = function(info) return select(2, UnitClass("player")) ~= "DRUID" end,
-								arg = "powerColors.ECLIPSE_MOON",
-							},
-							ECLIPSE_SUN = {
-								order = 8,
-								type = "color",
-								name = L["Eclipse (Sun)"],
-								desc = L["Bar coloring for the moon portion of the eclipse bar."],
-								hidden = function(info) return select(2, UnitClass("player")) ~= "DRUID" end,
-								arg = "powerColors.ECLIPSE_SUN",
+								name = L["Runes"],
+								arg = "powerColors.RUNES",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "DEATHKNIGHT" end,
 							},
 							AMMOSLOT = {
 								order = 9,
@@ -1172,26 +1187,25 @@ local function loadGeneralOptions()
 								arg = "powerColors.AURAPOINTS",
 								hidden = function() return not ShadowUF.modules.auraPoints end
 							},
-							SHADOWORBS = {
+							INSANITY = {
 								order = 12,
 								type = "color",
-								name = L["Shadow Orbs"],
-								arg = "powerColors.SHADOWORBS",
+								name = L["Insanity"],
+								arg = "powerColors.INSANITY",
 								hidden = function(info) return select(2, UnitClass("player")) ~= "PRIEST" end,
+							},
+							MAELSTROM = {
+								order = 12,
+								type = "color",
+								name = L["Maelstrom"],
+								arg = "powerColors.MAELSTROM",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "SHAMAN" end,
 							},
 							HOLYPOWER = {
 								order = 12,
 								type = "color",
 								name = L["Holy Power"],
 								arg = "powerColors.HOLYPOWER",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "PALADIN" end,
-							},
-							BANKEDHOLYPOWER = {
-								order = 13,
-								type = "color",
-								name = L["Banked Holy Power"],
-								hasAlpha = true,
-								arg = "powerColors.BANKEDHOLYPOWER",
 								hidden = function(info) return select(2, UnitClass("player")) ~= "PALADIN" end,
 							},
 							SOULSHARDS = {
@@ -1202,26 +1216,13 @@ local function loadGeneralOptions()
 								arg = "powerColors.SOULSHARDS",
 								hidden = function(info) return select(2, UnitClass("player")) ~= "WARLOCK" end,
 							},
-							DEMONICFURY = {
+							ARCANECHARGES = {
 								order = 15,
 								type = "color",
-								name = L["Demonic Fury"],
-								arg = "powerColors.DEMONICFURY",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "WARLOCK" end,
-							},
-							BURNINGEMBERS = {
-								order = 16,
-								type = "color",
-								name = L["Burning Embers"],
-								arg = "powerColors.BURNINGEMBERS",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "WARLOCK" end,
-							},
-							FULLBURNINGEMBER = {
-								order = 16,
-								type = "color",
-								name = L["Full Burning Ember"],
-								arg = "powerColors.FULLBURNINGEMBER",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "WARLOCK" end,
+								name = L["Arcane Charges"],
+								hasAlpha = true,
+								arg = "powerColors.ARCANECHARGES",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "MAGE" end,
 							},
 							CHI = {
 								order = 17,
@@ -1229,6 +1230,27 @@ local function loadGeneralOptions()
 								name = L["Chi"],
 								arg = "powerColors.CHI",
 								hidden = function(info) return select(2, UnitClass("player")) ~= "MONK" end,
+							},
+							FURY = {
+								order = 17,
+								type = "color",
+								name = L["Fury"],
+								arg = "powerColors.FURY",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "DEMONHUNTER" end,
+							},
+							PAIN = {
+								order = 17,
+								type = "color",
+								name = L["Pain"],
+								arg = "powerColors.PAIN",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "DEMONHUNTER" end,
+							},
+							LUNAR_POWER = {
+								order = 17,
+								type = "color",
+								name = L["Astral Power"],
+								arg = "powerColors.LUNAR_POWER",
+								hidden = function(info) return select(2, UnitClass("player")) ~= "DRUID" end,
 							},
 							MUSHROOMS = {
 								order = 17,
@@ -1250,20 +1272,6 @@ local function loadGeneralOptions()
 								name = L["Rune of Power"],
 								arg = "powerColors.RUNEOFPOWER",
 								hidden = function(info) return select(2, UnitClass("player")) ~= "MAGE" end,
-							},
-							LIGHTWELL = {
-								order = 17.6,
-								type = "color",
-								name = L["Lightwell"],
-								arg = "powerColors.LIGHTWELL",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "PRIEST" end,
-							},
-							POWER_TYPE_FEL_ENERGY = {
-								order = 18,
-								type = "color",
-								name = L["Fel Energy"],
-								arg = "powerColors.POWER_TYPE_FEL_ENERGY",
-								hidden = function(info) return select(2, UnitClass("player")) ~= "WARLOCK" end,
 							},
 							ALTERNATE = {
 								order = 19,
@@ -1372,7 +1380,7 @@ local function loadGeneralOptions()
 							help = {
 								order = 0,
 								type = "description",
-								name = L["This will be set for your current class only."],
+								name = L["This will be set for your current class only.\nIf no custom spells are set, defaults appropriate for your class will be used."],
 							},
 						},
 					},
@@ -2158,21 +2166,20 @@ local function loadUnitOptions()
 						desc = L["Whether to show any auras casted by the boss"],
 						width = "full"
 					},
-					consolidated = {
-						order = 4,
-						type = "toggle",
-						name = L["Show consolidable auras"],
-						desc = L["Whether to show any auras that would be consolidated by the default UI."],
-						hidden = hideBuffOption,
-						width = "full"
-					},
 					misc = {
 						order = 5,
 						type = "toggle",
 						name = L["Show any other auras"],
 						desc = L["Whether to show auras that do not fall into the above categories."],
 						width = "full"
-					}
+					},
+					relevant = {
+						order = 6,
+						type = "toggle",
+						name = L["Smart Friendly/Hostile Filter"],
+						desc = L["Only apply the selected filters to buffs on friendly units and debuffs on hostile units, and otherwise show all auras."],
+						width = "full"
+					},
 				}
 			},
 			display = {
@@ -2421,7 +2428,7 @@ local function loadUnitOptions()
 				hidden = hideBarOption,
 				arg = "$parent.background",
 			},
-			sep2 = {order = 1.55, type = "description", name = "", hidden = function(info) return not (not ShadowUF.modules[info[#(info) - 1]] or info[#(info) - 1] == "eclipseBar" or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints) end},
+			sep2 = {order = 1.55, type = "description", name = "", hidden = function(info) return not (not ShadowUF.modules[info[#(info) - 1]] or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints) end},
 			overrideBackground = {
 				order = 1.6,
 				type = "toggle",
@@ -2487,10 +2494,10 @@ local function loadUnitOptions()
 				type = "toggle",
 				name = L["Invert colors"],
 				desc = L["Flips coloring so the bar color is shown as the background color and the background as the bar"],
-				hidden = function(info) return not ShadowUF.modules[info[#(info) - 1]] or info[#(info) - 1] == "eclipseBar" or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints end,
+				hidden = function(info) return not ShadowUF.modules[info[#(info) - 1]] or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints end,
 				arg = "$parent.invert",
 			},
-			sep3 = {order = 3, type = "description", name = "", hidden = function(info) return not ShadowUF.modules[info[#(info) - 1]] or info[#(info) - 1] == "eclipseBar" or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints end,},
+			sep3 = {order = 3, type = "description", name = "", hidden = function(info) return not ShadowUF.modules[info[#(info) - 1]] or not ShadowUF.db.profile.advanced or ShadowUF.modules[info[#(info) - 1]].isComboPoints end,},
 			order = {
 				order = 4,
 				type = "range",
@@ -2915,6 +2922,116 @@ local function loadUnitOptions()
 								min = -30, max = 30, step = 1,
 								hidden = false,
 								arg = "soulShards.y",
+							},
+						},
+					},
+					-- ARCANE CHARGES
+					barArcane = {
+						order = 4,
+						type = "group",
+						inline = true,
+						name = L["Arcane Charges"],
+						hidden = function(info) return playerClass ~= "MAGE" or not getVariable(info[2], "arcaneCharges", nil, "isBar") or not getVariable(info[2], nil, nil, "arcaneCharges") end,
+						args = {
+							enabled = {
+								order = 1,
+								type = "toggle",
+								name = string.format(L["Enable %s"], L["Arcane Charges"]),
+								hidden = false,
+								arg = "arcaneCharges.enabled",
+							},
+							growth = {
+								order = 2,
+								type = "select",
+								name = L["Growth"],
+								values = {["LEFT"] = L["Left"], ["RIGHT"] = L["Right"]},
+								hidden = false,
+								arg = "arcaneCharges.growth",
+							},
+							showAlways = {
+								order = 3,
+								type = "toggle",
+								name = L["Don't hide when empty"],
+								hidden = false,
+								arg = "arcaneCharges.showAlways",
+							},
+						},
+					},
+					arcaneCharges = {
+						order = 4,
+						type = "group",
+						inline = true,
+						name = L["Arcane Charges"],
+						hidden = function(info) if( info[2] == "global" or getVariable(info[2], "arcaneCharges", nil, "isBar") ) then return true end return hideRestrictedOption(info) end,
+						args = {
+							enabled = {
+								order = 0,
+								type = "toggle",
+								name = string.format(L["Enable %s"], L["Arcane Charges"]),
+								hidden = false,
+								arg = "arcaneCharges.enabled",
+							},
+							sep1 = {
+								order = 1,
+								type = "description",
+								name = "",
+								width = "full",
+								hidden = hideAdvancedOption,
+							},
+							growth = {
+								order = 2,
+								type = "select",
+								name = L["Growth"],
+								values = {["UP"] = L["Up"], ["LEFT"] = L["Left"], ["RIGHT"] = L["Right"], ["DOWN"] = L["Down"]},
+								hidden = false,
+								arg = "arcaneCharges.growth",
+							},
+							size = {
+								order = 2,
+								type = "range",
+								name = L["Size"],
+								min = 0, max = 50, step = 1, softMin = 0, softMax = 20,
+								hidden = hideAdvancedOption,
+								arg = "arcaneCharges.size",
+							},
+							spacing = {
+								order = 3,
+								type = "range",
+								name = L["Spacing"],
+								min = -30, max = 30, step = 1, softMin = -15, softMax = 15,
+								hidden = hideAdvancedOption,
+								arg = "arcaneCharges.spacing",
+							},
+							sep2 = {
+								order = 4,
+								type = "description",
+								name = "",
+								width = "full",
+								hidden = hideAdvancedOption,
+							},
+							anchorPoint = {
+								order = 5,
+								type = "select",
+								name = L["Anchor point"],
+								values = positionList,
+								hidden = false,
+								arg = "arcaneCharges.anchorPoint",
+							},
+							x = {
+								order = 6,
+								type = "range",
+								name = L["X Offset"],
+								min = -30, max = 30, step = 1,
+								hidden = false,
+								arg = "arcaneCharges.x",
+							},
+							y = {
+								order = 7,
+								type = "range",
+								name = L["Y Offset"],
+								min = -30, max = 30, step = 1,
+								hidden = false,
+								arg = "arcaneCharges.y",
 							},
 						},
 					},
@@ -4041,7 +4158,7 @@ local function loadUnitOptions()
 						hidden = function(info) 
 							local unit = info[2]
 							if( unit == "global" ) then
-								return not globalConfig.runeBar and not globalConfig.eclipseBar and not globalConfig.totemBar and not globalConfig.druidBar and not globalConfig.monkBar and not globalConfig.xpBar and not globalConfig.demonicFuryBar and not globalConfig.burningEmbersBar and not globalConfig.staggerBar
+								return not globalConfig.runeBar and not globalConfig.totemBar and not globalConfig.druidBar and not globalConfig.priestBar and not globalConfig.shamanBar and not globalConfig.xpBar and not globalConfig.staggerBar
 							else
 								return unit ~= "player" and unit ~= "pet"
 							end
@@ -4055,22 +4172,6 @@ local function loadUnitOptions()
 								hidden = hideRestrictedOption,
 								arg = "runeBar.enabled",
 							},
-							eclipseBar = {
-								order = 1.25,
-								type = "toggle",
-								name = string.format(L["Enable %s"], L["Eclipse bar"]),
-								desc = L["Adds eclipse bars and how far into sun or moon eclipse is."],
-								hidden = hideRestrictedOption,
-								arg = "eclipseBar.enabled",
-							},
-							demonicFuryBar = {
-								order = 1.25,
-								type = "toggle",
-								name = string.format(L["Enable %s"], L["Demonic Fury bar"]),
-								desc = L["Adds a Demonic Fury bar for Demonology Warlocks."],
-								hidden = hideRestrictedOption,
-								arg = "demonicFuryBar.enabled",
-							},
 							staggerBar = {
 								order = 1.25,
 								type = "toggle",
@@ -4078,14 +4179,6 @@ local function loadUnitOptions()
 								desc = L["Adds a Stagger bar for Brewmaster Monks."],
 								hidden = hideRestrictedOption,
 								arg = "staggerBar.enabled",
-							},
-							burningEmbersBar = {
-								order = 1.25,
-								type = "toggle",
-								name = string.format(L["Enable %s"], L["Burning Embers bar"]),
-								desc = L["Adds a Burning Embers bar for Destruction Warlocks."],
-								hidden = hideRestrictedOption,
-								arg = "burningEmbersBar.enabled",
 							},
 							druidBar = {
 								order = 3,
@@ -4095,13 +4188,21 @@ local function loadUnitOptions()
 								hidden = hideRestrictedOption,
 								arg = "druidBar.enabled",
 							},
-							monkBar = {
+							priestBar = {
 								order = 3,
 								type = "toggle",
-								name = string.format(L["Enable %s"], L["Monk mana bar"]),
-								desc = L["Shows the mana power bar for Mistweaver Monks."],
+								name = string.format(L["Enable %s"], L["Priest mana bar"]),
+								desc = L["Adds a mana bar to the player frame for shadow priests."],
 								hidden = hideRestrictedOption,
-								arg = "monkBar.enabled",
+								arg = "priestBar.enabled",
+							},
+							shamanBar = {
+								order = 3,
+								type = "toggle",
+								name = string.format(L["Enable %s"], L["Shaman mana bar"]),
+								desc = L["Adds a mana bar to the player frame for elemental and enhancement shamans."],
+								hidden = hideRestrictedOption,
+								arg = "shamanBar.enabled",
 							},
 							xpBar = {
 								order = 4,
@@ -4139,17 +4240,32 @@ local function loadUnitOptions()
 								desc = L["Changes the health bar to the set hostile color (Red by default) when the unit takes aggro."],
 								arg = "healthBar.colorAggro",
 								hidden = hideRestrictedOption,
-							},							
-							healthColor = {
+							},
+							colorDispel = {
 								order = 5,
+								type = "toggle",
+								name = L["Color on curable debuff"],
+								desc = L["Changes the health bar to the color of any curable debuff."],
+								arg = "healthBar.colorDispel",
+								hidden = hideRestrictedOption,
+								width = "full",
+							},
+							healthColor = {
+								order = 6,
 								type = "select",
 								name = L["Color health by"],
 								desc = L["Primary means of coloring the health bar, color on aggro and color by reaction will override this if necessary."],
-								values = {["class"] = L["Class"], ["static"] = L["Static"], ["percent"] = L["Health percent"]},
+								values = function(info)
+											if info[2] == "pet" or info[2] == "partypet" or info[2] == "raidpet" or info[2] == "arenapet" then
+												return {["class"] = L["Class"], ["static"] = L["Static"], ["percent"] = L["Health percent"], ["playerclass"] = L["Player Class"]}
+											else
+												return {["class"] = L["Class"], ["static"] = L["Static"], ["percent"] = L["Health percent"]}
+											end
+										end,
 								arg = "healthBar.colorType",
 							},
 							reaction = {
-								order = 6,
+								order = 7,
 								type = "select",
 								name = L["Color by reaction on"],
 								desc = L["When to color the health bar by the units reaction, overriding the color health by option."],
@@ -4401,14 +4517,6 @@ local function loadUnitOptions()
 								arg = "castBar.name.enabled",
 								hidden = hideAdvancedOption,
 							},
-							rankEnabled = {
-								order = 4.5,
-								type = "toggle",
-								name = L["Show cast rank"],
-								arg = "castBar.name.rank",
-								hidden = hideAdvancedOption,
-								disabled = disableIfCastName,
-							},
 							nameAnchor = {
 								order = 5,
 								type = "select",
@@ -4639,7 +4747,8 @@ local function loadUnitOptions()
 	end
 
 	options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(ShadowUF.db, true)
-	LibStub("LibDualSpec-1.0"):EnhanceOptions(options.args.profile, ShadowUF.db)
+	local LibDualSpec = LibStub("LibDualSpec-1.0", true)
+	if LibDualSpec then LibDualSpec:EnhanceOptions(options.args.profile, ShadowUF.db) end
 	
 	options.args.enableUnits = {
 		type = "group",
@@ -4962,13 +5071,13 @@ end
 -- FILTER CONFIGURATION
 ---------------------
 local function loadFilterOptions()
-	local hasWhitelist, hasBlacklist, rebuildFilters
+	local hasWhitelist, hasBlacklist, hasOverridelist, rebuildFilters
 	local filterMap, spellMap = {}, {}
 
 	local manageFiltersTable = {
-		order = function(info) return info[#(info)] == "whitelists" and 1 or 2 end,
+		order = function(info) return info[#(info)] == "whitelists" and 1 or info[#(info)] == "blacklists" and 2 or 3 end,
 		type = "group",
-		name = function(info) return info[#(info)] == "whitelists" and L["Whitelists"] or L["Blacklists"] end,
+		name = function(info) return info[#(info)] == "whitelists" and L["Whitelists"] or info[#(info)] == "blacklists" and L["Blacklists"] or L["Override lists"] end,
 		args = {
 		},
 	}
@@ -5014,7 +5123,7 @@ local function loadFilterOptions()
 					add = {
 						order = 0,
 						type = "input",
-						name = L["Aura name"],
+						name = L["Aura name or spell ID"],
 						--dialogControl = "Aura_EditBox",
 						hidden = false,
 						set = function(info, value)
@@ -5041,10 +5150,12 @@ local function loadFilterOptions()
 							ShadowUF.db.profile.filters[filterType][filter] = nil
 							
 							-- Delete anything that used this filter too
-							local filterList = filterType == "whitelist" and ShadowUF.db.profile.filters.zonewhite or filterType == "blacklist" and ShadowUF.db.profile.filters.zoneblack
-							for id, filterUsed in pairs(filterList) do
-								if( filterUsed == filter ) then
-									filterList[id] = nil
+							local filterList = filterType == "whitelists" and ShadowUF.db.profile.filters.zonewhite or filterType == "blacklists" and ShadowUF.db.profile.filters.zoneblack or filterType == "overridelists" and ShadowUF.db.profile.filters.zoneoverride
+							if filterList then
+								for id, filterUsed in pairs(filterList) do
+									if( filterUsed == filter ) then
+										filterList[id] = nil
+									end
 								end
 							end
 							
@@ -5096,11 +5207,16 @@ local function loadFilterOptions()
 	local spellLabel = {
 		order = function(info) return tonumber(string.match(info[#(info)], "(%d+)")) end,
 		type = "description",
-		-- Odd I know, AceConfigDialog-3.0 expands descriptions to full width if width is nil
-		-- on the other hand we can't set width to "normal" so tricking it
-		width = "", 
+		width = "double",
 		fontSize = "medium",
-		name = function(info) return spellMap[info[#(info)]] end,
+		name = function(info)
+				local name = spellMap[info[#(info)]]
+				if tonumber(name) then
+					local spellName, _, icon = GetSpellInfo(name)
+					name = string.format("|T%s:14:14:0:0|t %s (#%i)", icon or "Interface\\Icons\\Inv_misc_questionmark", spellName or L["Unknown"], name)
+				end
+				return name
+			end,
 	}
 	
 	local spellRow = {
@@ -5114,6 +5230,8 @@ local function loadFilterOptions()
 			local filterType = info[#(info) - 3]
 			
 			ShadowUF.db.profile.filters[filterType][filter][spell] = nil
+
+			reloadUnitAuras()
 			rebuildFilters()
 		end
 	}
@@ -5159,13 +5277,13 @@ local function loadFilterOptions()
 		order = function(info) return info[#(info)] == "global" and 1 or info[#(info)] == "none" and 2 or 3 end,
 		type = "group",
 		inline = true,
-		hidden = function() return not hasWhitelist and not hasBlacklist end,
+		hidden = function() return not hasWhitelist and not hasBlacklist and not hasOverridelist end,
 		name = function(info) return AREA_NAMES[info[#(info)]] or L["Global"] end,
 		set = function(info, value)
 			local filter = filterMap[info[#(info)]]
 			local zone = info[#(info) - 1]
 			local unit = info[#(info) - 2]
-			local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or "zoneblack"
+			local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or ShadowUF.db.profile.filters.blacklists[filter] and "zoneblack" or "zoneoverride"
 			
 			for _, zoneConfig in pairs(zoneList) do
 				if( zone == "global" or zoneConfig == zone ) then
@@ -5194,20 +5312,20 @@ local function loadFilterOptions()
 			
 			if( unit == "global" or zone == "global" ) then 
 				local id = zone == "global" and zone .. unit or zone
-				local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or "zoneblack"
+				local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or ShadowUF.db.profile.filters.blacklists[filter] and "zoneblack" or "zoneoverride"
 				
 				if( info[#(info)] == "nofilter" ) then
-					return globalSettings[id .. "zonewhite"] == false and globalSettings[id .. "zoneblack"] == false
+					return globalSettings[id .. "zonewhite"] == false and globalSettings[id .. "zoneblack"] == false and globalSettings[id .. "zoneoverride"] == false
 				end
 
 				return globalSettings[id .. filterKey] == filter
 			end
 			
 			if( info[#(info)] == "nofilter" ) then
-				return not ShadowUF.db.profile.filters.zonewhite[zone .. unit] and not ShadowUF.db.profile.filters.zoneblack[zone .. unit]
+				return not ShadowUF.db.profile.filters.zonewhite[zone .. unit] and not ShadowUF.db.profile.filters.zoneblack[zone .. unit] and not ShadowUF.db.profile.filters.zoneoverride[zone .. unit]
 			end
 			
-			return ShadowUF.db.profile.filters.zonewhite[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneblack[zone .. unit] == filter
+			return ShadowUF.db.profile.filters.zonewhite[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneblack[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneoverride[zone .. unit] == filter
 		end,
 		args = {
 			nofilter = {
@@ -5225,14 +5343,17 @@ local function loadFilterOptions()
 							if( unit == "global" ) then
 								globalSettings[zoneConfig .. "zonewhite"] = false
 								globalSettings[zoneConfig .. "zoneblack"] = false
+								globalSettings[zoneConfig .. "zoneoverride"] = false
 								
 								for _, unit in pairs(ShadowUF.unitList) do
 									ShadowUF.db.profile.filters.zonewhite[zoneConfig .. unit] = nil
 									ShadowUF.db.profile.filters.zoneblack[zoneConfig .. unit] = nil
+									ShadowUF.db.profile.filters.zoneoverride[zoneConfig .. unit] = nil
 								end
 							else
 								ShadowUF.db.profile.filters.zonewhite[zoneConfig .. unit] = nil
 								ShadowUF.db.profile.filters.zoneblack[zoneConfig .. unit] = nil
+								ShadowUF.db.profile.filters.zoneoverride[zoneConfig .. unit] = nil
 							end
 						end
 					end
@@ -5240,6 +5361,7 @@ local function loadFilterOptions()
 					if( zone == "global" ) then
 						globalSettings[zone .. unit .. "zonewhite"] = false
 						globalSettings[zone .. unit .. "zoneblack"] = false
+						globalSettings[zone .. unit .. "zoneoverride"] = false
 					end
 
 					reloadUnitAuras()
@@ -5257,17 +5379,23 @@ local function loadFilterOptions()
 				name = L["Blacklists"], -- In theory I would make this black, but as black doesn't work with a black background I'll skip that
 				hidden = function(info) return not hasBlacklist end
 			},
+			override = {
+				order = 5,
+				type = "header",
+				name = L["Override lists"], -- In theory I would make this black, but as black doesn't work with a black background I'll skip that
+				hidden = function(info) return not hasOverridelist end
+			},
 		},
 	}
 	
 	-- Toggle used for set filter zones to enable filters
 	local filterToggle = {
-		order = function(info) return ShadowUF.db.profile.filters.whitelists[filterMap[info[#(info)]]] and 2 or 4 end,
+		order = function(info) return ShadowUF.db.profile.filters.whitelists[filterMap[info[#(info)]]] and 2 or ShadowUF.db.profile.filters.blacklists[filterMap[info[#(info)]]] and 4 or 6 end,
 		type = "toggle",
 		name = function(info) return filterMap[info[#(info)]] end,
 		desc = function(info)
 			local filter = filterMap[info[#(info)]]
-			filter = ShadowUF.db.profile.filters.whitelists[filter] or ShadowUF.db.profile.filters.blacklists[filter]
+			filter = ShadowUF.db.profile.filters.whitelists[filter] or ShadowUF.db.profile.filters.blacklists[filter] or ShadowUF.db.profile.filters.overridelists[filter]
 			if( filter.buffs and filter.debuffs ) then
 				return L["Filtering both buffs and debuffs"]
 			elseif( filter.buffs ) then
@@ -5285,15 +5413,15 @@ local function loadFilterOptions()
 	local filterID, spellID = 0, 0
 	local function buildList(type)
 		local manageFiltersTable = {
-			order = type == "whitelists" and 1 or 2,
+			order = type == "whitelists" and 1 or type == "blacklists" and 2 or 3,
 			type = "group",
-			name = type == "whitelists" and L["Whitelists"] or L["Blacklists"],
+			name = type == "whitelists" and L["Whitelists"] or type == "blacklists" and L["Blacklists"] or L["Override lists"],
 			args = {
 				groups = {
 					order = 0,
 					type = "group",
 					inline = true,
-					name = function(info) return info[#(info) - 1] == "whitelists" and L["Whitelist filters"] or L["Blacklist filters"] end,
+					name = function(info) return info[#(info) - 1] == "whitelists" and L["Whitelist filters"] or info[#(info) - 1] == "blacklists" and L["Blacklist filters"] or L["Override list filters"] end,
 					args = {
 					},
 				},
@@ -5332,7 +5460,7 @@ local function loadFilterOptions()
 		end
 		
 		if( not hasFilters ) then
-			if( type == "whitelists" ) then hasWhitelist = nil else hasBlacklist = nil end
+			if( type == "whitelists" ) then hasWhitelist = nil elseif( type == "blacklists" ) then hasBlacklist = nil else hasOverridelist = nil end
 			manageFiltersTable.args.groups.args.noFilters = noFilters
 		end
 		
@@ -5346,12 +5474,14 @@ local function loadFilterOptions()
 		filterID = 0
 		hasBlacklist = true
 		hasWhitelist = true
+		hasOverridelist = true
 	
 		table.wipe(filterMap)
 		table.wipe(spellMap)
 		
 		options.args.filter.args.filters.args.whitelists = buildList("whitelists")
 		options.args.filter.args.filters.args.blacklists = buildList("blacklists")
+		options.args.filter.args.filters.args.overridelists = buildList("overridelists")
 	end
 		
 	local unitFilterSelection = {
@@ -5371,7 +5501,7 @@ local function loadFilterOptions()
 				type = "group",
 				inline = true,
 				name = L["Help"],
-				hidden = function() return hasWhitelist or hasBlacklist end,
+				hidden = function() return hasWhitelist or hasBlacklist or hasOverridelist end,
 				args = {
 					help = {
 						type = "description",
@@ -5384,7 +5514,7 @@ local function loadFilterOptions()
 				order = 0,
 				type = "header",
 				name = function(info) return (info[#(info) - 1] == "global" and L["Global"] or L.units[info[#(info) - 1]]) end,
-				hidden = function() return not hasWhitelist and not hasBlacklist end,
+				hidden = function() return not hasWhitelist and not hasBlacklist and not hasOverridelist end,
 			},
 			global = filterTable,
 			none = filterTable,
@@ -5443,7 +5573,7 @@ local function loadFilterOptions()
 								args = {
 									help = {
 										type = "description",
-										name = L["Whitelists will hide any aura not in the filter group.|nBlacklists will hide auras that are in the filter group."],
+										name = L["Whitelists will hide any aura not in the filter group.|nBlacklists will hide auras that are in the filter group.|nOverride lists will bypass any filter and always be shown."],
 										width = "full",
 									}
 								},
@@ -5498,7 +5628,16 @@ local function loadFilterOptions()
 													return ""
 												end
 											end
-											
+
+											for filter in pairs(ShadowUF.db.profile.filters.overridelists) do
+												if( string.lower(filter) == name ) then
+													addFilter.error = string.format(L["The override list \"%s\" already exists."], value)
+													addFilter.errorName = value
+													AceRegistry:NotifyChange("ShadowedUF")
+													return ""
+												end
+											end
+
 											addFilter.error = nil
 											addFilter.errorName = nil
 											return true
@@ -5509,7 +5648,7 @@ local function loadFilterOptions()
 										type = "select",
 										name = L["Filter type"],
 										set = function(info, value) addFilter[info[#(info)]] = value end,
-										values = {["whitelists"] = L["Whitelist"], ["blacklists"] = L["Blacklist"]},
+										values = {["whitelists"] = L["Whitelist"], ["blacklists"] = L["Blacklist"], ["overridelists"] = L["Override list"]},
 									},
 									add = {
 										order = 2,
@@ -6320,35 +6459,6 @@ local function loadAuraIndicatorsOptions()
 		
 		return indicatorList
 	end
-		
-	local function writeTable(tbl)
-		local data = ""
-
-		for key, value in pairs(tbl) do
-			local valueType = type(value)
-			
-			-- Wrap the key in brackets if it's a number
-			if( type(key) == "number" ) then
-				key = string.format("[%s]", key)
-			-- Wrap the string with quotes if it has a space or digits in it
-			elseif( string.match(key, " ") or string.match(key, "^[0-9]+$") ) then
-				key = string.format("[\"%s\"]", key)
-			end
-			
-			-- foo = {bar = 5}
-			if( valueType == "table" ) then
-				data = string.format("%s%s=%s;", data, key, writeTable(value))
-			-- foo = true / foo = 5
-			elseif( valueType == "number" or valueType == "boolean" ) then
-				data = string.format("%s%s=%s;", data, key, tostring(value))
-			-- foo = "bar"
-			else
-				data = string.format("%s%s=%q;", data, key, tostring(value))
-			end
-		end
-		
-		return "{" .. data .. "}"
-	end
 
 	local function writeAuraTable(name)
 		ShadowUF.db.profile.auraIndicators.auras[name] = writeTable(Indicators.auraConfig[name])
@@ -6566,7 +6676,8 @@ local function loadAuraIndicatorsOptions()
 					for groupID, name in pairs(groupMap) do
 						if( not groupList[name] ) then
 							unitTable.args[tostring(groupID)] = nil
-							options.args.auraIndicators.args.auras.args[tostring(groupID)] = nil
+							options.args.auraIndicators.args.units.args.global.args.groups.args[tostring(groupID)] = nil
+							options.args.auraIndicators.args.auras.args.groups.args[tostring(groupID)] = nil
 							groupMap[groupID] = nil
 						end
 					end
@@ -7486,7 +7597,7 @@ function Config:Open()
 		loadOptions()
 		
 		AceRegistry:RegisterOptionsTable("ShadowedUF", options, true)
-		AceDialog:SetDefaultSize("ShadowedUF", 865, 550)
+		AceDialog:SetDefaultSize("ShadowedUF", 895, 570)
 		registered = true
 	end
 	

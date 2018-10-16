@@ -52,7 +52,7 @@ function Indicators:OnLayoutApplied(frame)
 		local indicator = frame.auraIndicators["indicator-" .. id]
 		if( not indicator ) then
 			indicator = CreateFrame("Frame", nil, frame.auraIndicators)
-			indicator:SetFrameLevel(frame.topFrameLevel + 1)
+			indicator:SetFrameLevel(frame.topFrameLevel + 2)
 			indicator.texture = indicator:CreateTexture(nil, "OVERLAY")
 			indicator.texture:SetPoint("CENTER", indicator)
 			indicator:SetAlpha(indicatorConfig.alpha)
@@ -63,6 +63,7 @@ function Indicators:OnLayoutApplied(frame)
 			indicator.cooldown = CreateFrame("Cooldown", nil, indicator, "CooldownFrameTemplate")
 			indicator.cooldown:SetReverse(true)
 			indicator.cooldown:SetPoint("CENTER", 0, -1)
+			indicator.cooldown:SetHideCountdownNumbers(true)
 
 			indicator.stack = indicator:CreateFontString(nil, "OVERLAY")
 			indicator.stack:SetFont("Interface\\AddOns\\ShadowedUnitFrames\\media\\fonts\\Myriad Condensed Web.ttf", 12, "OUTLINE")
@@ -100,7 +101,7 @@ local filterMap = {}
 local canCure = ShadowUF.Units.canCure
 for _, key in pairs(Indicators.auraFilters) do filterMap[key] = "filter-" .. key end
 
-local function checkFilterAura(frame, type, isFriendly, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+local function checkFilterAura(frame, type, isFriendly, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
 	local category
 	if( isFriendly and canCure[auraType] and type == "debuffs" ) then
 		category = "curable"
@@ -135,7 +136,7 @@ local function checkFilterAura(frame, type, isFriendly, name, rank, texture, cou
 	return applied
 end
 
-local function checkSpecificAura(frame, type, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+local function checkSpecificAura(frame, type, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
 	-- Not relevant
 	if( not ShadowUF.db.profile.auraIndicators.auras[name] and not ShadowUF.db.profile.auraIndicators.auras[tostring(spellID)] ) then return end
 
@@ -190,12 +191,12 @@ local function scanAuras(frame, filter, type)
 	local index = 0
 	while( true ) do
 		index = index + 1
-		local name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff = UnitAura(frame.unit, index, filter)
+		local name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff = UnitAura(frame.unit, index, filter)
 		if( not name ) then return end
 
-		local result = checkFilterAura(frame, type, isFriendly, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+		local result = checkFilterAura(frame, type, isFriendly, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
 		if( not result ) then
-			checkSpecificAura(frame, type, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+			checkSpecificAura(frame, type, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
 		end
 
 		auraList[name] = true
@@ -205,7 +206,7 @@ end
 function Indicators:UpdateIndicators(frame)
 	for key, indicatorConfig in pairs(ShadowUF.db.profile.auraIndicators.indicators) do
 		local indicator = frame.auraIndicators[key]
-		if( indicator and indicator.enabled and indicator.priority > -1 ) then
+		if( indicator and indicator.enabled and indicator.priority and indicator.priority > -1 ) then
 			-- Show a cooldown ring
 			if( indicator.showDuration and indicator.spellDuration > 0 and indicator.spellEnd > 0 ) then
 				indicator.cooldown:SetCooldown(indicator.spellEnd - indicator.spellDuration, indicator.spellDuration)
@@ -218,7 +219,7 @@ function Indicators:UpdateIndicators(frame)
 				indicator.texture:SetTexture(indicator.spellIcon)
 				indicator:SetBackdropColor(0, 0, 0, 0)
 			else
-				indicator.texture:SetTexture(indicator.colorR, indicator.colorG, indicator.colorB)
+				indicator.texture:SetColorTexture(indicator.colorR, indicator.colorG, indicator.colorB)
 				indicator:SetBackdropColor(0, 0, 0, 1)
 			end
 			
@@ -264,7 +265,7 @@ function Indicators:UpdateAuras(frame)
 	
 	-- Check for any indicators that are triggered due to something missing
 	for name in pairs(ShadowUF.db.profile.auraIndicators.missing) do
-		if( not auraList[name] ) then
+		if( not auraList[name] and self.auraConfig[name] ) then
 			local aura = self.auraConfig[name]
 			local indicator = frame.auraIndicators[aura.indicator]
 			if( indicator and indicator.enabled and aura.priority > indicator.priority and not ShadowUF.db.profile.auraIndicators.disabled[playerClass][name] ) then
