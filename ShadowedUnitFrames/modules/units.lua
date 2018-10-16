@@ -59,7 +59,7 @@ local function ReregisterUnitEvents(self)
 end
 
 -- Register an event that should always call the frame
-local function RegisterNormalEvent(self, event, handler, func)
+local function RegisterNormalEvent(self, event, handler, func, unitOverride)
 	-- Make sure the handler/func exists
 	if( not handler[func] ) then
 		error(string.format("Invalid handler/function passed for %s on event %s, the function %s does not exist.", self:GetName() or tostring(self), tostring(event), tostring(func)), 3)
@@ -67,7 +67,11 @@ local function RegisterNormalEvent(self, event, handler, func)
 	end
 
 	if( unitEvents[event] and not ShadowUF.fakeUnits[self.unitRealType] ) then
-		self:BlizzRegisterUnitEvent(event, self.unitOwner, self.vehicleUnit)
+		self:BlizzRegisterUnitEvent(event, unitOverride or self.unitOwner, self.vehicleUnit)
+		if unitOverride then
+			self.unitEventOverrides = self.unitEventOverrides or {}
+			self.unitEventOverrides[event] = unitOverride
+		end
 	else
 		self:RegisterEvent(event)
 	end
@@ -200,7 +204,7 @@ end
 
 -- Event handling
 local function OnEvent(self, event, unit, ...)
-	if( not unitEvents[event] or self.unit == unit ) then
+	if( not unitEvents[event] or self.unit == unit or (self.unitEventOverrides and self.unitEventOverrides[event] == unit)) then
 		for handler, func in pairs(self.registeredEvents[event]) do
 			handler[func](handler, self, event, unit, ...)
 		end
@@ -415,6 +419,12 @@ local function updateChildUnits(...)
 	end
 end
 
+local function createFakeUnitUpdateTimer(frame)
+	if( not frame.updateTimer ) then
+		frame.updateTimer = C_Timer.NewTicker(0.5, function() if( UnitExists(frame.unit) ) then frame:FullUpdate() end end)
+	end
+end
+
 -- Attribute set, something changed
 -- unit = Active unitid
 -- unitID = Just the number from the unitid
@@ -564,13 +574,7 @@ OnAttributeChanged = function(self, name, unit)
 	
 	-- *target units are not real units, thus they do not receive events and must be polled for data
 	elseif( ShadowUF.fakeUnits[self.unitRealType] ) then
-		if( not self.updateTimer ) then
-			self.updateTimer = self:CreateOnUpdate(0.50, function() 
-				if( UnitExists(self.unit) ) then
-					self:FullUpdate()
-				end
-			end)
-		end
+		createFakeUnitUpdateTimer(self)
 		
 		-- Speeds up updating units when their owner changes target, if party1 changes target then party1target is force updated, if target changes target
 		-- then targettarget and targettargettarget are also force updated
@@ -627,7 +631,7 @@ local secureInitializeUnit = [[
 	end
 ]]
 
-local unitButtonTemplate = ClickCastHeader and "ClickCastUnitTemplate,SecureUnitButtonTemplate" or "SecureUnitButtonTemplate"
+local unitButtonTemplate = ClickCastHeader and "ClickCastUnitTemplate,SUF_SecureUnitTemplate" or "SUF_SecureUnitTemplate"
 
 -- Header unit initialized
 local function initializeUnit(header, frameName)
@@ -637,28 +641,6 @@ local function initializeUnit(header, frameName)
 	frame.unitType = header.unitType
 
 	Units:CreateUnit(frame)
-end
-
--- Update helper
-local function SetTimer(self, seconds)
-	self.animation:SetDuration(seconds)
-	self:Play()
-end
-
-local function CreateOnUpdate(self, seconds, callback)
-	local group = self:CreateAnimationGroup()
-	group:SetLooping("REPEAT")
-	group:SetScript("OnLoop", callback)
-
-	local animation = group:CreateAnimation("Animation")
-	animation:SetOrder(1)
-
-	group.animation = animation
-	group.SetTimer = SetTimer
-
-	group:SetTimer(seconds)
-
-	return group
 end
 
 -- Show tooltip
@@ -676,7 +658,15 @@ end
 
 local function SUF_OnEnter(self)
 	if( not ShadowUF.db.profile.tooltipCombat or not InCombatLockdown() ) then
-		UnitFrame_OnEnter(self)
+		if not GameTooltip:IsForbidden() then
+			UnitFrame_OnEnter(self)
+		end
+	end
+end
+
+local function SUF_OnLeave(self)
+	if not GameTooltip:IsForbidden() then
+		UnitFrame_OnLeave(self)
 	end
 end
 
@@ -687,7 +677,7 @@ end
 
 local function ArenaClassToken(self)
 	local specID = GetArenaOpponentSpec(self.unitID)
-	return specID and select(7, GetSpecializationInfoByID(specID))
+	return specID and select(6, GetSpecializationInfoByID(specID))
 end
 
 function Units:CreateUnit(...)
@@ -705,7 +695,6 @@ function Units:CreateUnit(...)
 	frame.DisableRangeAlpha = DisableRangeAlpha
 	frame.UnregisterUpdateFunc = UnregisterUpdateFunc
 	frame.ReregisterUnitEvents = ReregisterUnitEvents
-	frame.CreateOnUpdate = CreateOnUpdate
 	frame.SetBarColor = SetBarColor
 	frame.SetBlockColor = SetBlockColor
 	frame.FullUpdate = FullUpdate
@@ -718,7 +707,7 @@ function Units:CreateUnit(...)
 	frame.highFrame:SetFrameLevel(frame.topFrameLevel + 2)
 	frame.highFrame:SetAllPoints(frame)
 	
-	frame:SetScript("OnAttributeChanged", OnAttributeChanged)
+	frame:HookScript("OnAttributeChanged", OnAttributeChanged)
 	frame:SetScript("OnEvent", OnEvent)
 	frame:HookScript("OnEnter", OnEnter)
 	frame:HookScript("OnLeave", OnLeave)
@@ -726,7 +715,7 @@ function Units:CreateUnit(...)
 	frame:SetScript("OnHide", OnHide)
 
 	frame.OnEnter = SUF_OnEnter
-	frame.OnLeave = UnitFrame_OnLeave
+	frame.OnLeave = SUF_OnLeave
 
 	frame:RegisterForClicks("AnyUp")
 	-- non-header frames don't set those, so we need to do it
@@ -889,7 +878,7 @@ function Units:SetHeaderAttributes(frame, type)
 		frame:SetAttribute("roleFilter", config.roleFilter)
 
 		if( config.groupBy == "CLASS" ) then
-			frame:SetAttribute("groupingOrder", "DEATHKNIGHT,DRUID,HUNTER,MAGE,PALADIN,PRIEST,ROGUE,SHAMAN,WARLOCK,WARRIOR,MONK")
+			frame:SetAttribute("groupingOrder", "DEATHKNIGHT,DEMONHUNTER,DRUID,HUNTER,MAGE,PALADIN,PRIEST,ROGUE,SHAMAN,WARLOCK,WARRIOR,MONK")
 			frame:SetAttribute("groupBy", "CLASS")
 		elseif( config.groupBy == "ASSIGNEDROLE" ) then
 			frame:SetAttribute("groupingOrder", "TANK,HEALER,DAMAGER,NONE")
@@ -1016,7 +1005,6 @@ function Units:LoadSplitGroupHeader(type)
 				frame:SetAttribute("initial-unitWatch", true)
 				frame:SetAttribute("showRaid", true)
 				frame:SetAttribute("groupFilter", id)
-				frame:UnregisterEvent("UNIT_NAME_UPDATE")
 				frame:SetAttribute("initialConfigFunction", secureInitializeUnit)
 				frame.initialConfigFunction = initializeUnit
 				frame.isHeaderFrame = true
@@ -1096,7 +1084,6 @@ function Units:LoadGroupHeader(type)
 	headerFrame.isHeaderFrame = true
 	headerFrame.unitType = type
 	headerFrame.unitMappedType = type
-	headerFrame:UnregisterEvent("UNIT_NAME_UPDATE")
 
 	-- For securely managely the display
 	local config = ShadowUF.db.profile.units[type]
@@ -1486,11 +1473,10 @@ end
 -- Handle figuring out what auras players can cure
 local curableSpells = {
 	["DRUID"] = {[88423] = {"Magic", "Curse", "Poison"}, [2782] = {"Curse", "Poison"}},
-	["MAGE"] = {[475] = {"Curse"}},
 	["PRIEST"] = {[527] = {"Magic", "Disease"}, [32375] = {"Magic"}},
-	["PALADIN"] = {[4987] = {"Poison", "Disease"}, [53551] = {"Magic"}},
+	["PALADIN"] = {[4987] = {"Poison", "Disease", "Magic"}, [213644] = {"Poison", "Disease"}},
 	["SHAMAN"] = {[77130] = {"Curse", "Magic"}, [51886] = {"Curse"}},
-	["MONK"] = {[115450] = {"Poison", "Disease"}, [115451] = {"Magic"}}
+	["MONK"] = {[115450] = {"Poison", "Disease", "Magic"}, [218164] = {"Poison", "Disease"}},
 }
 
 curableSpells = curableSpells[select(2, UnitClass("player"))]

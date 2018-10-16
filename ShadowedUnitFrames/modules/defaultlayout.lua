@@ -116,7 +116,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 	
 	-- Some localizations do not work with Myriad Condensed Web, need to automatically swap it to a localization that will work for it
 	local SML = LibStub:GetLibrary("LibSharedMedia-3.0")
-	if( GetLocale() == "koKR" or GetLocale() == "zhCN" or GetLocale() == "zhTW" or GetLocale() == "ruRU" ) then
+	if( GetLocale() == "koKR" or GetLocale() == "zhCN" or GetLocale() == "zhTW" ) then
 		config.font.name = SML.DefaultMedia.font
 	end
 	
@@ -136,6 +136,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 		WARRIOR = {r = 0.78, g = 0.61, b = 0.43},
 		DEATHKNIGHT = {r = 0.77, g = 0.12 , b = 0.23},
 		MONK = {r = 0.0, g = 1.00 , b = 0.59},
+		DEMONHUNTER = {r = 0.64, g = 0.19, b = 0.79},
 		PET = {r = 0.20, g = 0.90, b = 0.20},
 		VEHICLE = {r = 0.23, g = 0.41, b = 0.23},
 	}
@@ -146,29 +147,26 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 		ENERGY = {r = 1.0, g = 0.85, b = 0.10}, 
 		RUNES = {r = 0.50, g = 0.50, b = 0.50}, 
 		RUNIC_POWER = {b = 0.60, g = 0.45, r = 0.35},
-		ECLIPSE_SUN = {r = 1.0, g = 1.0, b = 0.0},
-		ECLIPSE_MOON = {r = 0.30, g = 0.52, b = 0.90},
 		AMMOSLOT = {r = 0.85, g = 0.60, b = 0.55},
 		FUEL = {r = 0.85, g = 0.47, b = 0.36},
 		COMBOPOINTS = {r = 1.0, g = 0.80, b = 0.0},
+		INSANITY = {r = 0.40, g = 0, b = 0.80},
+		MAELSTROM = {r = 0.00, g = 0.50, b = 1.00},
+		LUNAR_POWER = {r = 0.30, g = 0.52, b = 0.90},
 		HOLYPOWER = {r = 0.95, g = 0.90, b = 0.60},
-		BANKEDHOLYPOWER = {r = 0.96, g = 0.61, b = 0.84},
 		SOULSHARDS = {r = 0.58, g = 0.51, b = 0.79},
-		DEMONICFURY = {r = 0.58, g = 0.51, b = 0.79},
-		BURNINGEMBERS = {r = 0.58, g = 0.51, b = 0.79},
-		FULLBURNINGEMBER = {r = 0.88, g = 0.09, b = 0.062},
-		SHADOWORBS = {r = 0.58, g = 0.51, b = 0.79},
+		ARCANECHARGES = {r = 0.1, g = 0.1, b = 0.98},
 		ALTERNATE = {r = 0.815, g = 0.941, b = 1},
 		CHI = {r = 0.71, g = 1.0, b = 0.92},
+		FURY = {r = 0.788, g = 0.259, b = 0.992},
+		PAIN = {r = 1, g = 0, b = 0},
 		STATUE = {r = 0.35, g = 0.45, b = 0.60},
 		RUNEOFPOWER = {r = 0.35, g = 0.45, b = 0.60},
 		MUSHROOMS = {r = 0.20, g = 0.90, b = 0.20},
-		POWER_TYPE_FEL_ENERGY = {r = 0.878, g = 0.980, b = 0},
 		AURAPOINTS = {r = 1.0, g = 0.80, b = 0.0},
 		STAGGER_GREEN = {r = 0.52, g = 1.0, b = 0.52},
 		STAGGER_YELLOW = {r = 1.0, g = 0.98, b = 0.72},
 		STAGGER_RED = {r = 1.0, g = 0.42, b = 0.42},
-		LIGHTWELL = {r = 0.80, g = 0.80, b = 0.80}
 	}
 	config.healthColors = {
 		tapped = {r = 0.5, g = 0.5, b = 0.5},
@@ -236,8 +234,8 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 	config.parentUnit = {
 		portrait = {enabled = false, type = "3D", alignment = "LEFT", width = 0.22, height = 0.50, order = 15, fullBefore = 0, fullAfter = 100},
 		auras = {
-			buffs = {enabled = false, anchorPoint = "BL", size = 16, perRow = 10, x = 0, y = 0, show = {player = true, boss = true, raid = true, consolidated = true, misc = true}, enlarge = {}, timers = {ALL = true}},
-			debuffs = {enabled = false, anchorPoint = "BL", size = 16, perRow = 10, x = 0, y = 0, show = {player = true, boss = true, raid = true, consolidated = true, misc = true}, enlarge = {SELF = true}, timers = {ALL = true}},
+			buffs = {enabled = false, anchorPoint = "BL", size = 16, perRow = 10, x = 0, y = 0, show = {player = true, boss = true, raid = true, misc = true}, enlarge = {}, timers = {ALL = true}},
+			debuffs = {enabled = false, anchorPoint = "BL", size = 16, perRow = 10, x = 0, y = 0, show = {player = true, boss = true, raid = true, misc = true}, enlarge = {SELF = true}, timers = {ALL = true}},
 		},
 		text = {
 			{width = 0.50, name = L["Left text"], anchorTo = "$healthBar", anchorPoint = "CLI", x = 3, y = 0, size = 0, default = true},
@@ -246,7 +244,8 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 			{width = 0.50, name = L["Left text"], anchorTo = "$powerBar", anchorPoint = "CLI", x = 3, y = 0, size = 0, default = true},
 			{width = 0.60, name = L["Right text"], anchorTo = "$powerBar", anchorPoint = "CRI", x = -3, y = 0, size = 0, default = true},
 
-			{width = 1, name = L["Text"], anchorTo = "$emptyBar", anchorPoint = "CLI", x = 3, y = 0, size = 0, default = true},
+			{width = 0.50, name = L["Left text"], anchorTo = "$emptyBar", anchorPoint = "CLI", x = 3, y = 0, size = 0, default = true},
+			{width = 0.60, name = L["Right text"], anchorTo = "$emptyBar", anchorPoint = "CRI", x = -3, y = 0, size = 0, default = true},
 		},
 		indicators = {
 			raidTarget = {anchorTo = "$parent", anchorPoint = "C", size = 20, x = 0, y = 0},
@@ -300,6 +299,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		raidpet = {
@@ -330,6 +330,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		player = {
@@ -343,16 +344,15 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 			runeBar = {enabled = true, background = false, height = 0.40, order = 70},
 			totemBar = {enabled = true, background = false, height = 0.40, order = 70},
 			druidBar = {enabled = true, background = true, height = 0.40, order = 70},
-			eclipseBar = {enabled = true, background = true, order = 70, height = 0.75},
+			priestBar = {enabled = true, background = true, height = 0.40, order = 70},
+			shamanBar = {enabled = true, background = true, height = 0.40, order = 70},
 			comboPoints = {enabled = true, anchorTo = "$parent", order = 60, anchorPoint = "BR", x = -3, y = 8, size = 14, spacing = -4, growth = "LEFT", isBar = true, height = 0.40},
 			auraPoints = {enabled = false, showAlways = true, anchorTo = "$parent", order = 60, anchorPoint = "BR", x = -3, y = 8, size = 14, spacing = -4, growth = "LEFT", isBar = true, height = 0.40},
-			demonicFuryBar = {enabled = true, background = false, height = 0.50, order = 70},
-			burningEmbersBar = {enabled = true, background = false, height = 0.40, order = 70},
 			staggerBar = {enabled = true, background = true, height = 0.30, order = 70},
 			soulShards = {anchorTo = "$parent", order = 60, height = 0.40, anchorPoint = "BR", x = -8, y = 6, size = 12, spacing = -2, growth = "LEFT", isBar = true, showAlways = true},
 			holyPower = {anchorTo = "$parent", order = 60, height = 0.40, anchorPoint = "BR", x = -3, y = 6, size = 14, spacing = -4, growth = "LEFT", isBar = true, showAlways = true},
 			chi = {anchorTo = "$parent", order = 60, height = 0.40, anchorPoint = "BR", x = -3, y = 6, size = 14, spacing = -4, growth = "LEFT", isBar = true, showAlways = true},
-			shadowOrbs = {anchorTo = "$parent", order = 60, height = 0.40, anchorPoint = "BR", x = -3, y = 6, size = 14, spacing = -4, growth = "LEFT", isBar = true, showAlways = true},
+			arcaneCharges = {anchorTo = "$parent", order = 60, height = 0.40, anchorPoint = "BR", x = -8, y = 6, size = 12, spacing = -2, growth = "LEFT", isBar = true, showAlways = true},
 			incHeal = {cap = 1},
 			incAbsorb = {cap = 1},
 			healAbsorb = {cap = 1},
@@ -369,8 +369,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[(()afk() )][name][( ()group())]"},
-				{enabled = true, width = 1, name = L["Text"], text = "[warlock:demonic:curpp]", anchorTo = "$demonicFuryBar", anchorPoint = "C", x = 3, y = 0, size = -1, default = true},
-				{enabled = true, width = 1, name = L["Text"], text = "[druid:eclipse]", anchorTo = "$eclipseBar", anchorPoint = "CLI", size = 0, x = 0, y = 0, default = true},
+				{text = ""},
 				{enabled = true, width = 1, name = L["Timer Text"], text = "[totem:timer]", anchorTo = "$totemBar", anchorPoint = "C", x = 0, y = 0, size = 0, default = true, block = true},
 				{enabled = true, width = 1, name = L["Timer Text"], text = "[rune:timer]", anchorTo = "$runeBar", anchorPoint = "C", size = 0, x = 0, y = 0, default = true, block = true},
 				{enabled = true, width = 1, name = L["Text"], text = "[monk:abs:stagger]", anchorTo = "$staggerBar", anchorPoint = "C", size = 0, x = 0, y = 0, default = true}
@@ -404,6 +403,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[level( )][perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		boss = {
@@ -426,6 +426,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[name]"},
+				{text = ""},
 			},
 			portrait = {enabled = false},
 		},
@@ -455,9 +456,11 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		arena = {
+			enabled = true,
 			width = 170,
 			height = 45,
 			scale = 1.0,
@@ -482,6 +485,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		arenapet = {
@@ -515,6 +519,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		arenatargettarget = {
@@ -533,9 +538,11 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
-		},		
+		},
 		battleground = {
+			enabled = true,
 			width = 140,
 			height = 35,
 			scale = 1.0,
@@ -560,6 +567,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		battlegroundpet = {
@@ -575,6 +583,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		battlegroundtarget = {
@@ -593,6 +602,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		battlegroundtargettarget = {
@@ -611,6 +621,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		maintank = {
@@ -641,6 +652,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		maintanktarget = {
@@ -657,6 +669,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[classification( )][perpp]", width = 0.50},
 				{text = "[curmaxpp]", anchorTo = "$powerBar", width = 0.60},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		maintanktargettarget = {
@@ -673,6 +686,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[classification( )][perpp]", width = 0.50},
 				{text = "[curmaxpp]", anchorTo = "$powerBar", width = 0.60},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		mainassist = {
@@ -690,7 +704,6 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 			healAbsorb = {cap = 1},
 			portrait = {enabled = false, fullAfter = 50},
 			castBar = {order = 60},
-			healAbsorb = {cap = 1},
 			indicators = {
                 resurrect = {enabled = true, anchorPoint = "LC", size = 28, x = 37, y = -1, anchorTo = "$parent"},
 			},
@@ -704,6 +717,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[level( )][perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		mainassisttarget = {
@@ -721,6 +735,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[level( )][classification( )][perpp]", width = 0.50},
 				{text = "[curmaxpp]", anchorTo = "$powerBar", width = 0.60},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		mainassisttargettarget = {
@@ -738,6 +753,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[level( )][classification( )][perpp]", width = 0.50},
 				{text = "[curmaxpp]", anchorTo = "$powerBar", width = 0.60},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		partypet = {
@@ -769,6 +785,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		partytargettarget = {
@@ -786,6 +803,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},		
 		target = {
@@ -814,6 +832,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[level( )][classification( )][perpp]", width = 0.50},
 				{text = "[curmaxpp]", anchorTo = "$powerBar", width = 0.60},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		pet = {
@@ -831,6 +850,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		pettarget = {
@@ -847,6 +867,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curmaxpp]"},
 				{text = "[name]"},
+				{text = ""},
 			},
 		},
 		focus = {
@@ -869,6 +890,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[perpp]"},
 				{text = "[curpp]"},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		focustarget = {
@@ -887,6 +909,7 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = ""},
 				{text = ""},
 				{text = "[(()afk() )][name]"},
+				{text = ""},
 			},
 		},
 		targettarget = {
@@ -904,6 +927,8 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 				{text = "[curhp]"},
 				{text = "[perpp]"},
 				{text = "[curpp]"},
+				{text = ""},
+				{text = ""},
 			},
 		},
 		targettargettarget = {
@@ -918,6 +943,8 @@ function ShadowUF:LoadDefaultLayout(useMerge)
 			},
 			text = {
 				{text = "[name]", width = 1.0},
+				{text = ""},
+				{text = ""},
 				{text = ""},
 				{text = ""},
 				{text = ""},

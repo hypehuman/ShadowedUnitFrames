@@ -63,10 +63,26 @@ function Tags:RegisterEvents(parent, fontString, tags)
 					fontString[event] = true
 				-- Unit event
 				elseif( Tags.eventType[event] ~= "unitless" or ShadowUF.Units.unitEvents[event] ) then
-					parent:RegisterUnitEvent(event, fontString, "UpdateTags")
+					local success, err = pcall(parent.RegisterUnitEvent, parent, event, fontString, "UpdateTags")
+					if not success then
+						-- switch the tag back
+						ShadowUF.Units.unitEvents[event] = false
+						Tags.eventType[event] = "unitless"
+
+						parent:RegisterNormalEvent(event, fontString, "UpdateTags")
+					end
 				-- Everything else
 				else
 					parent:RegisterNormalEvent(event, fontString, "UpdateTags")
+				end
+
+				-- register UNIT_MANA event since its the only event that fires after repopping at a spirit healer
+				if event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" then
+					parent:RegisterUnitEvent("UNIT_MANA", fontString, "UpdateTags")
+
+					if ( parent.unit == "player" ) then
+						parent:RegisterNormalEvent("PLAYER_UNGHOST", fontString, "UpdateTags")
+					end
 				end
 			end
 		end
@@ -128,7 +144,7 @@ end
 
 
 -- Register a font string with the tag system
-local powerEvents = {["UNIT_POWER"] = true, ["UNIT_POWER_FREQUENT"] = true, ["UNIT_MAXPOWER"] = true}
+local powerEvents = {["UNIT_POWER_UPDATE"] = true, ["UNIT_POWER_FREQUENT"] = true, ["UNIT_MAXPOWER"] = true}
 local frequencyCache = {}
 local function createTagFunction(tags, resetCache)
 	if( tagPool[tags] and not resetCache ) then
@@ -217,6 +233,23 @@ local function createTagFunction(tags, resetCache)
 	return tagPool[tags], frequencyCache[tags]
 end
 
+local function createMonitorTimer(fontString, frequency)
+	if( not fontString.monitor or fontString.monitor.frequency ~= frequency ) then
+		if fontString.monitor then
+			fontString.monitor:Cancel()
+		end
+		fontString.monitor  = C_Timer.NewTicker(frequency, function() fontString:UpdateTags() end)
+		fontString.monitor.frequency = frequency
+	end
+end
+
+local function cancelMonitorTimer(fontString)
+	if( fontString.monitor ) then
+		fontString.monitor:Cancel()
+		fontString.monitor = nil
+	end
+end
+
 function Tags:Register(parent, fontString, tags, resetCache)
 	-- Unregister the font string first if we did register it already
 	if( fontString.UpdateTags ) then
@@ -231,13 +264,9 @@ function Tags:Register(parent, fontString, tags, resetCache)
 	fontString.UpdateTags, frequency = createTagFunction(tags, resetCache)
 
 	if( frequency ) then
-		fontString.monitor = fontString.monitor or parent:CreateOnUpdate(frequency, function()
-			fontString:UpdateTags()
-		end)
-
-		fontString.monitor:SetTimer(frequency)
+		createMonitorTimer(fontString, frequency)
 	elseif( fontString.monitor ) then
-		fontString.monitor:Stop()
+		cancelMonitorTimer(fontString)
 	end
 
 	-- Register any needed event
@@ -256,7 +285,7 @@ function Tags:Unregister(fontString)
 	end
 	
 	-- Kill any tag data
-	if( fontString.monitor ) then fontString.monitor:Stop() end
+	cancelMonitorTimer(fontString)
 	fontString.parent:UnregisterAll(fontString)
 	fontString.powerFilters = nil
 	fontString.UpdateTags = nil
@@ -406,7 +435,7 @@ end})
 
 -- Going to have to start using an env wrapper for tags I think
 local Druid = {}
-Druid.CatForm, Druid.Shapeshift = GetSpellInfo(768)
+Druid.CatForm = GetSpellInfo(768)
 Druid.MoonkinForm = GetSpellInfo(24858)
 Druid.TravelForm = GetSpellInfo(783)
 Druid.BearForm = GetSpellInfo(5487)
@@ -432,19 +461,19 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		
 		local Druid = ShadowUF.Druid
-		if( UnitAura(unit, Druid.CatForm, Druid.Shapeshift) ) then
+		if( ShadowUF.UnitAuraBySpell(unit, Druid.CatForm) ) then
 			return ShadowUF.L["C"]
-		elseif( UnitAura(unit, Druid.TreeForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.TreeForm) ) then
 			return ShadowUF.L["T"]
-		elseif( UnitAura(unit, Druid.MoonkinForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.MoonkinForm) ) then
 			return ShadowUF.L["M"]
-		elseif( UnitAura(unit, Druid.BearForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.BearForm) ) then
 			return ShadowUF.L["B"]
-		elseif( UnitAura(unit, Druid.SwiftFlightForm, Druid.Shapeshift) or UnitAura(unit, Druid.FlightForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.SwiftFlightForm) or ShadowUF.UnitAuraBySpell(unit, Druid.FlightForm) ) then
 			return ShadowUF.L["F"]
-		elseif( UnitAura(unit, Druid.TravelForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.TravelForm) ) then
 			return ShadowUF.L["T"]
-		elseif( UnitAura(unit, Druid.AquaticForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.AquaticForm) ) then
 			return ShadowUF.L["A"]
 		end
 	end]],
@@ -452,19 +481,19 @@ Tags.defaultTags = {
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		
 		local Druid = ShadowUF.Druid
-		if( UnitAura(unit, Druid.CatForm, Druid.Shapeshift) ) then
+		if( ShadowUF.UnitAuraBySpell(unit, Druid.CatForm) ) then
 			return ShadowUF.L["Cat"]
-		elseif( UnitAura(unit, Druid.TreeForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.TreeForm) ) then
 			return ShadowUF.L["Tree"]
-		elseif( UnitAura(unit, Druid.MoonkinForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.MoonkinForm) ) then
 			return ShadowUF.L["Moonkin"]
-		elseif( UnitAura(unit, Druid.BearForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.BearForm) ) then
 			return ShadowUF.L["Bear"]
-		elseif( UnitAura(unit, Druid.SwiftFlightForm, Druid.Shapeshift) or UnitAura(unit, Druid.FlightForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.SwiftFlightForm) or ShadowUF.UnitAuraBySpell(unit, Druid.FlightForm) ) then
 			return ShadowUF.L["Flight"]
-		elseif( UnitAura(unit, Druid.TravelForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.TravelForm) ) then
 			return ShadowUF.L["Travel"]
-		elseif( UnitAura(unit, Druid.AquaticForm, Druid.Shapeshift) ) then
+		elseif( ShadowUF.UnitAuraBySpell(unit, Druid.AquaticForm) ) then
 			return ShadowUF.L["Aquatic"]
 		end
 	end]],
@@ -831,58 +860,28 @@ Tags.defaultTags = {
 		end
 	end]],
 	["sshards"] = [[function(unit, unitOwner)
-		local points = UnitPower(ShadowUF.playerUnit, SPELL_POWER_SOUL_SHARDS)
+		local points = UnitPower(ShadowUF.playerUnit, Enum.PowerType.SoulShards)
 		return points and points > 0 and points
 	end]],
 	["hpower"] = [[function(unit, unitOwner)
-		local points = UnitPower(ShadowUF.playerUnit, SPELL_POWER_HOLY_POWER)
-		return points and points > 0 and points
-	end]],
-	["priest:shadoworbs"] = [[function(unit, unitOwner)
-		local points = UnitPower(ShadowUF.playerUnit, SPELL_POWER_SHADOW_ORBS)
+		local points = UnitPower(ShadowUF.playerUnit, Enum.PowerType.HolyPower)
 		return points and points > 0 and points
 	end]],
 	["monk:chipoints"] = [[function(unit, unitOwner)
-		local points = UnitPower(ShadowUF.playerUnit, SPELL_POWER_CHI)
+		local points = UnitPower(ShadowUF.playerUnit, Enum.PowerType.Chi)
 		return points and points > 0 and points
 	end]],
-	["warlock:demonic:perpp"] = [[function(unit, unitOwner)
-		local maxPower = UnitPowerMax(unit, SPELL_POWER_DEMONIC_FURY)
-		if( maxPower <= 0 ) then
-			return nil
-		elseif( UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) ) then
-			return "0%"
-		end
-		
-		return string.format("%d%%", math.floor(UnitPower(unit, SPELL_POWER_DEMONIC_FURY) / maxPower * 100 + 0.5))
-	end]],
-	["warlock:demonic:maxpp"] = [[function(unit, unitOwner)
-		local power = UnitPowerMax(unit, SPELL_POWER_DEMONIC_FURY)
-		if( power <= 0 ) then
-			return nil
-		elseif( UnitIsDeadOrGhost(unit) ) then
-			return 0
-		end
-		
-		return ShadowUF:FormatLargeNumber(power)
-	end]],
-	["warlock:demonic:curpp"] = [[function(unit, unitOwner)
-		local power = UnitPower(unit, SPELL_POWER_DEMONIC_FURY)
-		if( power <= 0 ) then
-			return nil
-		elseif( UnitIsDeadOrGhost(unit) ) then
-			return 0
-		end
-		
-		return ShadowUF:FormatLargeNumber(power)
-	end]],
 	["cpoints"] = [[function(unit, unitOwner)
-		local points = GetComboPoints(ShadowUF.playerUnit)
-		if( points == 0 ) then
-			points = GetComboPoints(ShadowUF.playerUnit, ShadowUF.playerUnit)
+		if( UnitHasVehicleUI("player") and UnitHasVehiclePlayerFrameUI("player") ) then
+			local points = GetComboPoints("vehicle")
+			if( points == 0 ) then
+				points = GetComboPoints("vehicle", "vehicle")
+			end
+
+			return points
+		else
+			return UnitPower("player", Enum.PowerType.ComboPoints)
 		end
-		
-		return points > 0 and points
 	end]],
 	["smartlevel"] = [[function(unit, unitOwner)
 		local classif = UnitClassification(unit)
@@ -945,22 +944,22 @@ Tags.defaultTags = {
 	["druid:curpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
-		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
-		return ShadowUF:FormatLargeNumber(UnitPower(unit, SPELL_POWER_MANA))
+		if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		return ShadowUF:FormatLargeNumber(UnitPower(unit, Enum.PowerType.Mana))
 	end]],
 	["druid:abscurpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
-		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
-		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA))
+		if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		return hadowUF:AddCommas(UnitPower(unit, Enum.PowerType.Mana))
 	end]],
 	["druid:curmaxpp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
 		local powerType = UnitPowerType(unit)
-		if( powerType ~= 1 and powerType ~= 3 ) then return nil end
+		if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
 		
-		local maxPower = UnitPowerMax(unit, SPELL_POWER_MANA)
-		local power = UnitPower(unit, SPELL_POWER_MANA)
+		local maxPower = UnitPowerMax(unit, Enum.PowerType.Mana)
+		local power = UnitPower(unit, Enum.PowerType.Mana)
 		if( UnitIsDeadOrGhost(unit) ) then
 			return string.format("0/%s", ShadowUF:FormatLargeNumber(maxPower))
 		elseif( maxPower == 0 and power == 0 ) then
@@ -968,54 +967,84 @@ Tags.defaultTags = {
 		end
 		
 		return string.format("%s/%s", ShadowUF:FormatLargeNumber(power), ShadowUF:FormatLargeNumber(maxPower))
-	end]],
-	["druid:eclipse"] = [[function(unit, unitOwner)
-		if( GetSpecialization() ~= 1 ) then return nil end
-
-		return UnitPower(unitOwner, SPELL_POWER_ECLIPSE)
 	end]],
 	["druid:absolutepp"] = [[function(unit, unitOwner)
 		if( select(2, UnitClass(unit)) ~= "DRUID" ) then return nil end
-		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
+		local powerType = UnitPowerType(unit)
+		if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
 
-		return ShadowUF:AddCommas(UnitPower(unit, SPELL_POWER_MANA))
+		return ShadowUF:AddCommas(UnitPower(unit, Enum.PowerType.Mana))
 	end]],
-	["monk:curpp"] = [[function(unit, unitOwner)
-		if( select(2, UnitClass(unit)) ~= "MONK" ) then return nil end
-		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
+	["sec:curpp"] = [[function(unit, unitOwner)
+		local class = select(2, UnitClass(unit))
+		local powerType = UnitPowerType(unit)
+		if( class == "DRUID" ) then
+			if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		elseif( class == "PRIEST" ) then
+			if( powerType ~= Enum.PowerType.Insanity ) then return nil end
+		elseif( class == "SHAMAN" ) then
+			if( powerType ~= Enum.PowerType.Maelstrom ) then return nil end
+		else
+			return nil
+		end
+		return ShadowUF:FormatLargeNumber(UnitPower(unit, Enum.PowerType.Mana))
+	end]],
+	["sec:abscurpp"] = [[function(unit, unitOwner)
+		local class = select(2, UnitClass(unit))
+		local powerType = UnitPowerType(unit)
+		if( class == "DRUID" ) then
+			if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		elseif( class == "PRIEST" ) then
+			if( powerType ~= Enum.PowerType.Insanity ) then return nil end
+		elseif( class == "SHAMAN" ) then
+			if( powerType ~= Enum.PowerType.Maelstrom ) then return nil end
+		else
+			return nil
+		end
+		return UnitPower(unit, Enum.PowerType.Mana)
+	end]],
+	["sec:curmaxpp"] = [[function(unit, unitOwner)
+		local class = select(2, UnitClass(unit))
+		local powerType = UnitPowerType(unit)
+		if( class == "DRUID" ) then
+			if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		elseif( class == "PRIEST" ) then
+			if( powerType ~= Enum.PowerType.Insanity ) then return nil end
+		elseif( class == "SHAMAN" ) then
+			if( powerType ~= Enum.PowerType.Maelstrom ) then return nil end
+		else
+			return nil
+		end
 
-		return ShadowUF:FormatLargeNumber(UnitPower(unit, SPELL_POWER_MANA))
-	end]],
-	["monk:abscurpp"] = [[function(unit, unitOwner)
-		if( select(2, UnitClass(unit)) ~= "MONK" ) then return nil end
-		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
-
-		return UnitPower(unit, SPELL_POWER_MANA)
-	end]],
-	["monk:curmaxpp"] = [[function(unit, unitOwner)
-		if( select(2, UnitClass(unit)) ~= "MONK" ) then return nil end
-		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
-		
-		local maxPower = UnitPowerMax(unit, SPELL_POWER_MANA)
-		local power = UnitPower(unit, SPELL_POWER_MANA)
+		local maxPower = UnitPowerMax(unit, Enum.PowerType.Mana)
+		local power = UnitPower(unit, Enum.PowerType.Mana)
 		if( UnitIsDeadOrGhost(unit) ) then
 			return string.format("0/%s", ShadowUF:FormatLargeNumber(maxPower))
 		elseif( maxPower == 0 and power == 0 ) then
 			return nil
 		end
-		
+
 		return string.format("%s/%s", ShadowUF:FormatLargeNumber(power), ShadowUF:FormatLargeNumber(maxPower))
 	end]],
-	["monk:absolutepp"] = [[function(unit, unitOwner)
-		if( select(2, UnitClass(unit)) ~= "MONK" ) then return nil end
-		if( GetSpecialization() ~= SPEC_MONK_MISTWEAVER ) then return nil end
+	["sec:absolutepp"] = [[function(unit, unitOwner)
+		local class = select(2, UnitClass(unit))
+		local powerType = UnitPowerType(unit)
+		if( class == "DRUID" ) then
+			if( powerType ~= Enum.PowerType.Rage and powerType ~= Enum.PowerType.Energy and powerType ~= Enum.PowerType.LunarPower ) then return nil end
+		elseif( class == "PRIEST" ) then
+			if( powerType ~= Enum.PowerType.Insanity ) then return nil end
+		elseif( class == "SHAMAN" ) then
+			if( powerType ~= Enum.PowerType.Maelstrom ) then return nil end
+		else
+			return nil
+		end
 
-		return UnitPower(unit, SPELL_POWER_MANA)
+		return UnitPower(unit, Enum.PowerType.Mana)
 	end]],
 	["per:incheal"] = [[function(unit, unitOwner, fontString)
 		local heal = UnitGetIncomingHeals(unit)
 		local maxHealth = UnitHealthMax(unit)
-		return heal and heal > 0 and maxHealth > 0 and string.format("%d%%", (heal / maxHealth))
+		return heal and heal > 0 and maxHealth > 0 and string.format("%d%%", (heal / maxHealth) * 100)
 	end]],
 	["abs:incheal"] = [[function(unit, unitOwner, fontString)
 	    local heal = UnitGetIncomingHeals(unit) 
@@ -1121,15 +1150,14 @@ Tags.defaultEvents = {
 	["curmaxpp"]				= "SUF_POWERTYPE:CURRENT UNIT_POWER_FREQUENT UNIT_MAXPOWER",
 	["absolutepp"]				= "SUF_POWERTYPE:CURRENT UNIT_POWER_FREQUENT UNIT_MAXPOWER",
 	["smart:curmaxpp"]			= "SUF_POWERTYPE:CURRENT UNIT_POWER_FREQUENT UNIT_MAXPOWER",
-	["druid:eclipse"]			= "SUF_POWERTYPE:ECLIPSE UNIT_POWER_FREQUENT UNIT_MAXPOWER",
 	["druid:curpp"]  	    	= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
 	["druid:abscurpp"]      	= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
 	["druid:curmaxpp"]			= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
 	["druid:absolutepp"]		= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
-	["monk:curpp"]  	    	= "SUF_POWERTYPE:LIGHT_FORCE UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
-	["monk:abscurpp"]      		= "SUF_POWERTYPE:LIGHT_FORCE UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
-	["monk:curmaxpp"]			= "SUF_POWERTYPE:LIGHT_FORCE UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
-	["monk:absolutepp"]			= "SUF_POWERTYPE:LIGHT_FORCE UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
+	["sec:curpp"]  	    		= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
+	["sec:abscurpp"]      		= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_DISPLAYPOWER",
+	["sec:curmaxpp"]			= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
+	["sec:absolutepp"]			= "SUF_POWERTYPE:MANA UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER",
 	["sshards"]					= "SUF_POWERTYPE:SOUL_SHARDS UNIT_POWER_FREQUENT",
 	["hpower"]					= "SUF_POWERTYPE:HOLY_POWER UNIT_POWER_FREQUENT",
 	["level"]               	= "UNIT_LEVEL UNIT_FACTION PLAYER_LEVEL_UP",
@@ -1149,7 +1177,7 @@ Tags.defaultEvents = {
 	["perpp"]               	= "SUF_POWERTYPE:CURRENT UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_CONNECTION",
 	["status"]              	= "UNIT_HEALTH UNIT_HEALTH_FREQUENT PLAYER_UPDATE_RESTING UNIT_CONNECTION",
 	["smartlevel"]          	= "UNIT_LEVEL PLAYER_LEVEL_UP UNIT_CLASSIFICATION_CHANGED",
-	["cpoints"]             	= "UNIT_COMBO_POINTS PLAYER_TARGET_CHANGED",
+	["cpoints"]             	= "UNIT_POWER_FREQUENT PLAYER_TARGET_CHANGED",
 	["rare"]                	= "UNIT_CLASSIFICATION_CHANGED",
 	["classification"]      	= "UNIT_CLASSIFICATION_CHANGED",
 	["shortclassification"] 	= "UNIT_CLASSIFICATION_CHANGED",
@@ -1165,11 +1193,7 @@ Tags.defaultEvents = {
 	["unit:scaled:threat"]		= "UNIT_THREAT_SITUATION_UPDATE",
 	["unit:color:sit"]			= "UNIT_THREAT_SITUATION_UPDATE",
 	["unit:situation"]			= "UNIT_THREAT_SITUATION_UPDATE",
-	["warlock:demonic:curpp"]	= "SUF_POWERTYPE:DEMONIC_FURY UNIT_POWER_FREQUENT",
-	["warlock:demonic:maxpp"] 	= "SUF_POWERTYPE:DEMONIC_FURY UNIT_MAXPOWER",
-	["warlock:demonic:perpp"] 	= "SUF_POWERTYPE:DEMONIC_FURY UNIT_POWER_FREQUENT UNIT_MAXPOWER",
 	["monk:chipoints"]			= "SUF_POWERTYPE:LIGHT_FORCE UNIT_POWER_FREQUENT",
-	["priest:shadoworbs"]		= "SUF_POWERTYPE:SHADOW_ORBS UNIT_POWER_FREQUENT",
 }
 	
 -- Default update frequencies for tag updating, used if it's needed to override the update speed
@@ -1254,11 +1278,10 @@ Tags.defaultCategories = {
 	["druid:abscurpp"]  	    = "classspec",
 	["druid:curmaxpp"]			= "classspec",
 	["druid:absolutepp"]		= "classspec",
-	["druid:eclipse"]			= "classspec",
-	["monk:curpp"]     	   		= "classspec",
-	["monk:abscurpp"]  	  	 	= "classspec",
-	["monk:curmaxpp"]			= "classspec",
-	["monk:absolutepp"]			= "classspec",
+	["sec:curpp"]     	    	= "classspec",
+	["sec:abscurpp"]  	    	= "classspec",
+	["sec:curmaxpp"]			= "classspec",
+	["sec:absolutepp"]			= "classspec",
 	["sshards"]					= "classspec",
 	["hpower"]					= "classspec",
 	["situation"]				= "playerthreat",
@@ -1273,11 +1296,7 @@ Tags.defaultCategories = {
 	["unit:color:aggro"]		= "threat",
 	["unit:raid:assist"]		= "raid",
 	["unit:raid:targeting"] 	= "raid",
-	["warlock:demonic:curpp"]	= "classspec",
-	["warlock:demonic:maxpp"] 	= "classspec",
-	["warlock:demonic:perpp"] 	= "classspec",
 	["monk:chipoints"]			= "classspec",
-	["priest:shadoworbs"]		= "classspec",
 	["monk:stagger"]			= "classspec",
 	["monk:abs:stagger"]		= "classspec"
 }
@@ -1349,15 +1368,14 @@ Tags.defaultHelp = {
 	["abbrev:name"]				= L["Abbreviates unit names above 10 characters, \"Dark Rune Champion\" becomes \"D.R.Champion\" and \"Dark Rune Commoner\" becomes \"D.R.Commoner\"."],
 	["group"]					= L["Shows current group number of the unit."],
 	["close"]					= L["Closes a color code, prevents colors from showing up on text that you do not want it to."],
-	["druid:eclipse"]			= L["Current Eclipse, <0 is Lunar Energy and >0 is Solar Energy."],
 	["druid:curpp"]         	= string.format(L["Works the same as [%s], but this is only shown if the unit is in Cat or Bear form."], "currpp"),
 	["druid:abscurpp"]      	= string.format(L["Works the same as [%s], but this is only shown if the unit is in Cat or Bear form."], "abscurpp"),
 	["druid:curmaxpp"]			= string.format(L["Works the same as [%s], but this is only shown if the unit is in Cat or Bear form."], "curmaxpp"),
 	["druid:absolutepp"]		= string.format(L["Works the same as [%s], but this is only shown if the unit is in Cat or Bear form."], "absolutepp"),
-	["monk:curpp"]         		= string.format(L["Works the same as [%s], but this is only shown if you are a Mistweaver Monk."], "currpp"),
-	["monk:abscurpp"]      		= string.format(L["Works the same as [%s], but this is only shown if you are a Mistweaver Monk."], "abscurpp"),
-	["monk:curmaxpp"]			= string.format(L["Works the same as [%s], but this is only shown if you are a Mistweaver Monk."], "curmaxpp"),
-	["monk:absolutepp"]			= string.format(L["Works the same as [%s], but this is only shown if you are a Mistweaver Monk."], "absolutepp"),
+	["sec:curpp"]         		= string.format(L["Works the same as [%s], but always shows mana and is only shown if mana is a secondary power."], "curpp"),
+	["sec:abscurpp"]      		= string.format(L["Works the same as [%s], but always shows mana and is only shown if mana is a secondary power."], "abscurpp"),
+	["sec:curmaxpp"]			= string.format(L["Works the same as [%s], but always shows mana and is only shown if mana is a secondary power."], "curmaxpp"),
+	["sec:absolutepp"]			= string.format(L["Works the same as [%s], but always shows mana and is only shown if mana is a secondary power."], "absolutepp"),
 	["situation"]				= L["Returns text based on your threat situation with your target: Aggro for Aggro, High for being close to taking aggro, and Medium as a general warning to be wary."],
 	["color:sit"]				= L["Returns a color code of the threat situation with your target: Red for Aggro, Orange for High threat and Yellow to be careful."],
 	["scaled:threat"]			= L["Returns a scaled threat percent of your aggro on your current target, always 0 - 100%."],
@@ -1370,11 +1388,7 @@ Tags.defaultHelp = {
 	["color:aggro"]				= L["Same as [color:sit] except it only returns red if you have aggro, rather than transiting from yellow -> orange -> red."],
 	["unit:raid:targeting"]		= L["How many people in your raid are targeting the unit, for example if you put this on yourself it will show how many people are targeting you. This includes you in the count!"],
 	["unit:raid:assist"]		= L["How many people are assisting the unit, for example if you put this on yourself it will show how many people are targeting your target. This includes you in the count!"],
-	["warlock:demonic:curpp"]	= string.format(L["Works the same as [%s], but this is usedd to show Demonic Fury power for Demonology Warlocks."], "curpp"),
-	["warlock:demonic:maxpp"] 	= string.format(L["Works the same as [%s], but this is usedd to show Demonic Fury power for Demonology Warlocks."], "maxpp"),
-	["warlock:demonic:perpp"] 	= string.format(L["Works the same as [%s], but this is usedd to show Demonic Fury power for Demonology Warlocks."], "perpp"),
 	["monk:chipoints"]			= L["How many Chi points you currently have."],
-	["priest:shadoworbs"]		= L["How many Shadow Orbs you have if you're Shadow"],
 	["monk:stagger"]			= L["Shows the current staggered damage, if 12,000 damage is staggered, shows 12k."],
 	["monk:abs:stagger"]		= L["Shows the absolute staggered damage, if 16,000 damage is staggered, shows 16,000."]
 }
@@ -1448,15 +1462,14 @@ Tags.defaultNames = {
 	["dechp"]					= L["Decimal percent HP"],
 	["group"]					= L["Group number"],
 	["close"]					= L["Close color"],
-	["druid:eclipse"]			= L["Eclipse (Druid)"],
 	["druid:curpp"]         	= L["Current power (Druid)"],
 	["druid:abscurpp"]      	= L["Current power (Druid/Absolute)"],
 	["druid:curmaxpp"]			= L["Cur/Max power (Druid)"],
-	["druid:absolutepp"]		= L["Current health (Druid/Absolute)"],
-	["monk:curpp"]        	 	= L["Current power (Monk)"],
-	["monk:abscurpp"]   	   	= L["Current power (Monk/Absolute)"],
-	["monk:curmaxpp"]			= L["Cur/Max power (Monk)"],
-	["monk:absolutepp"]			= L["Current health (Monk/Absolute)"],
+	["druid:absolutepp"]		= L["Cur/Max power (Druid/Absolute)"],
+	["sec:curpp"]         		= L["Current power (Secondary)"],
+	["sec:abscurpp"]      		= L["Current power (Secondary/Absolute)"],
+	["sec:curmaxpp"]			= L["Cur/Max power (Secondary)"],
+	["sec:absolutepp"]			= L["Cur/Max power (Secondary/Absolute)"],
 	["situation"]				= L["Threat situation"],
 	["color:sit"]				= L["Color code for situation"],
 	["scaled:threat"]			= L["Scaled threat percent"],
@@ -1466,11 +1479,7 @@ Tags.defaultNames = {
 	["unit:color:aggro"]		= L["Unit color code on aggro"],
 	["unit:raid:targeting"]		= L["Raid targeting unit"],
 	["unit:raid:assist"]		= L["Raid assisting unit"],
-	["warlock:demonic:curpp"]	= L["Current Demonic Fury (Short)"],
-	["warlock:demonic:maxpp"] 	= L["Max Demonic Fury (Short)"],
-	["warlock:demonic:perpp"] 	= L["Percent Demonic Fury"],
 	["monk:chipoints"]			= L["Chi Points"],
-	["priest:shadoworbs"]		= L["Shadow Orbs"],
 	["monk:stagger"]			= L["Stagger (Monk)"],
 	["monk:abs:stagger"]		= L["Stagger (Monk/Absolute)"]
 }
@@ -1488,12 +1497,20 @@ Tags.eventType = {
 	["PLAYER_TARGET_CHANGED"] = "unitless",
 	["PARTY_LEADER_CHANGED"] = "unitless",
 	["PLAYER_ENTERING_WORLD"] = "unitless",
+	["PLAYER_REGEN_DISABLED"] = "unitless",
+	["PLAYER_REGEN_ENABLED"] = "unitless",
 	["PLAYER_XP_UPDATE"] = "unitless",
 	["PLAYER_TOTEM_UPDATE"] = "unitless",
 	["PLAYER_LEVEL_UP"] = "unitless",
 	["UPDATE_EXHAUSTION"] = "unitless",
 	["PLAYER_UPDATE_RESTING"] = "unitless",
 	["UNIT_COMBO_POINTS"] = "unitless",
+	["PARTY_LOOT_METHOD_CHANGED"] = "unitless",
+	["READY_CHECK"] = "unitless",
+	["READY_CHECK_FINISHED"] = "unitless",
+	["RUNE_POWER_UPDATE"] = "unitless",
+	["RUNE_TYPE_UPDATE"] = "unitless",
+	["UPDATE_FACTION"] = "unitless",
 }
 
 -- Tag groups that have a special filter that can't be used on certain units, like the threat API's
@@ -1550,7 +1567,7 @@ local function loadAPIEvents()
 		["GetRuneCooldown"]			= "RUNE_POWER_UPDATE",
 		["GetRuneType"]				= "RUNE_TYPE_UPDATE",
 		["GetRaidTargetIndex"]		= "RAID_TARGET_UPDATE",
-		["GetComboPoints"]			= "UNIT_COMBO_POINTS",
+		["GetComboPoints"]			= "UNIT_POWER_FREQUENT",
 		["GetNumSubgroupMembers"]	= "GROUP_ROSTER_UPDATE",
 		["GetNumGroupMembers"]		= "GROUP_ROSTER_UPDATE",
 		["GetRaidRosterInfo"]		= "GROUP_ROSTER_UPDATE",

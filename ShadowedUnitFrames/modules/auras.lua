@@ -182,13 +182,14 @@ end
 -- Aura button functions
 -- Updates the X seconds left on aura tooltip while it's shown
 local function updateTooltip(self)
-	if( GameTooltip:IsOwned(self) ) then
+	if( not GameTooltip:IsForbidden() and GameTooltip:IsOwned(self) ) then
 		GameTooltip:SetUnitAura(self.unit, self.auraID, self.filter)
 	end
 end
 
 local function showTooltip(self)
 	if( not ShadowUF.db.profile.locked ) then return end
+	if( GameTooltip:IsForbidden() ) then return end
 
 	GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
 	if( self.filter == "TEMP" ) then
@@ -202,7 +203,9 @@ end
 
 local function hideTooltip(self)
 	self:SetScript("OnUpdate", nil)
-	GameTooltip:Hide()
+	if not GameTooltip:IsForbidden() then
+		GameTooltip:Hide()
+	end
 end
 
 local function cancelAura(self, mouse)
@@ -228,7 +231,6 @@ local function updateButton(id, group, config)
 		button.cooldown:SetReverse(true)
 		button.cooldown:SetDrawEdge(false)
 		button.cooldown:SetDrawSwipe(true)
-		button.cooldown:SetHideCountdownNumbers(true)
 		button.cooldown:SetSwipeColor(0, 0, 0, 0.8)
 		button.cooldown:Hide()
 		
@@ -264,6 +266,7 @@ local function updateButton(id, group, config)
 	
 	-- Set the button sizing
 	button.cooldown.noCooldownCount = ShadowUF.db.profile.omnicc
+	button.cooldown:SetHideCountdownNumbers(ShadowUF.db.profile.blizzardcc)
 	button:SetHeight(config.size)
 	button:SetWidth(config.size)
 	button.border:SetHeight(config.size + 1)
@@ -295,7 +298,7 @@ local function updateGroup(self, type, config, reverseConfig)
 	group.type = type
 	group.parent = self
 	group.anchorTo = self
-	group:SetFrameLevel(5)
+	group:SetFrameLevel(self.highFrame:GetFrameLevel() + 1)
 	group:Show()
 
 	-- If debuffs are anchored to buffs, debuffs need to grow however buffs do
@@ -492,11 +495,13 @@ function Auras:UpdateFilter(frame)
 	
 	local white = ShadowUF.db.profile.filters.zonewhite[zone .. frame.unitType]
 	local black = ShadowUF.db.profile.filters.zoneblack[zone .. frame.unitType]
+	local override = ShadowUF.db.profile.filters.zoneoverride[zone .. frame.unitType]
 	frame.auras.whitelist = white and ShadowUF.db.profile.filters.whitelists[white] or filterDefault
 	frame.auras.blacklist = black and ShadowUF.db.profile.filters.blacklists[black] or filterDefault
+	frame.auras.overridelist = override and ShadowUF.db.profile.filters.overridelists[override] or filterDefault
 end
 
-local function categorizeAura(type, curable, auraType, caster, isRemovable, shouldConsolidate, canApplyAura, isBossDebuff)
+local function categorizeAura(type, curable, auraType, caster, isRemovable, canApplyAura, isBossDebuff)
 	-- Player casted it
 	if( playerUnits[caster] ) then
 		return "player"
@@ -512,22 +517,22 @@ local function categorizeAura(type, curable, auraType, caster, isRemovable, shou
 	-- Can be stolen/purged (dispellable)
 	elseif( type == "debuffs" and isRemovable ) then
 		return "raid"
-	-- Consolidatable buff
-	elseif( type == "buffs" and shouldConsolidate ) then
-		return "consolidated"
 	else
 		return "misc"
 	end
 end
 
-local function renderAura(parent, frame, type, config, displayConfig, index, filter, isFriendly, curable, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+local function renderAura(parent, frame, type, config, displayConfig, index, filter, isFriendly, curable, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
+	-- aura filters are all saved as strings, so need to override here
+	spellID = tostring(spellID)
 	-- Do our initial list check to see if we can quick filter it out
 	if( parent.whitelist[type] and not parent.whitelist[name] and not parent.whitelist[spellID] ) then return end
 	if( parent.blacklist[type] and ( parent.blacklist[name] or parent.blacklist[spellID] ) ) then return end
 
 	-- Now do our type filter
-	local category = categorizeAura(type, curable, auraType, caster, isRemovable, shouldConsolidate, canApplyAura, isBossDebuff)
-	if( not config.show[category] ) then return end
+	local category = categorizeAura(type, curable, auraType, caster, isRemovable, canApplyAura, isBossDebuff)
+	-- check override and type filters
+	if( not ( parent.overridelist[type] and ( parent.overridelist[name] or parent.overridelist[spellID] ) ) and not config.show[category] and (not config.show.relevant or (type == "debuffs") ~= isFriendly) ) then return end
 
 	-- Create any buttons we need
 	frame.totalAuras = frame.totalAuras + 1
@@ -591,10 +596,10 @@ local function scan(parent, frame, type, config, displayConfig, filter)
 	local index = 0
 	while( true ) do
 		index = index + 1
-		local name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff = UnitAura(frame.parent.unit, index, filter)
+		local name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff = UnitAura(frame.parent.unit, index, filter)
 		if( not name ) then break end
 
-		renderAura(parent, frame, type, config, displayConfig, index, filter, isFriendly, curable, name, rank, texture, count, auraType, duration, endTime, caster, isRemovable, shouldConsolidate, spellID, canApplyAura, isBossDebuff)
+		renderAura(parent, frame, type, config, displayConfig, index, filter, isFriendly, curable, name, texture, count, auraType, duration, endTime, caster, isRemovable, nameplateShowPersonal, spellID, canApplyAura, isBossDebuff)
 
 		-- Too many auras shown, break out
 		-- Get down

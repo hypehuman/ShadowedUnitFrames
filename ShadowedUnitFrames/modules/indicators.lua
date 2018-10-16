@@ -20,7 +20,7 @@ function Indicators:UpdateClass(frame)
 	
 	local class = frame:UnitClassToken()
 	if( UnitIsPlayer(frame.unit) and class ) then
-		local coords = CLASS_BUTTONS[class]
+		local coords = CLASS_ICON_TCOORDS[class]
 		frame.indicators.class:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
 		frame.indicators.class:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
 		frame.indicators.class:Show()
@@ -162,9 +162,11 @@ function Indicators:UpdatePVPFlag(frame)
 	local faction = UnitFactionGroup(frame.unit)
 	if( UnitIsPVPFreeForAll(frame.unit) ) then
 		frame.indicators.pvp:SetTexture("Interface\\TargetingFrame\\UI-PVP-FFA")
+		frame.indicators.pvp:SetTexCoord(0,1,0,1)
 		frame.indicators.pvp:Show()
 	elseif( faction and faction ~= "Neutral" and UnitIsPVP(frame.unit) ) then
-		frame.indicators.pvp:SetTexture(string.format("Interface\\TargetingFrame\\UI-PVP-%s", faction)) 
+		frame.indicators.pvp:SetTexture(string.format("Interface\\TargetingFrame\\UI-PVP-%s", faction))
+		frame.indicators.pvp:SetTexCoord(0,1,0,1)
 		frame.indicators.pvp:Show()
 	else
 		frame.indicators.pvp:Hide()
@@ -322,14 +324,14 @@ function Indicators:OnEnable(frame)
 	end
 
 	if( config.indicators.arenaSpec and config.indicators.arenaSpec.enabled ) then
-		frame:RegisterUnitEvent("ARENA_OPPONENT_UPDATE", self, "UpdateArenaSpec")
+		frame:RegisterNormalEvent("ARENA_OPPONENT_UPDATE", self, "UpdateArenaSpec")
 		frame:RegisterUpdateFunc(self, "UpdateArenaSpec")
         frame.indicators.arenaSpec = frame.indicators.arenaSpec or frame.indicators:CreateTexture(nil, "OVERLAY")
 	end
 
 	if( config.indicators.phase and config.indicators.phase.enabled ) then
 		-- Player phase changes do not generate a phase change event. This seems to be the best
-		frame:RegisterNormalEvent("UPDATE_WORLD_STATES", self, "UpdatePhase")
+		-- TODO: what event does fire here? frame:RegisterNormalEvent("UPDATE_WORLD_STATES", self, "UpdatePhase")
         frame:RegisterUpdateFunc(self, "UpdatePhase")
         frame.indicators.phase = frame.indicators.phase or frame.indicators:CreateTexture(nil, "OVERLAY")
     end

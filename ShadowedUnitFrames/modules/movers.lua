@@ -42,18 +42,10 @@ local function createConfigEnv()
 		end,
 		UnitHealthMax = function(unit) return 50000 end,
 		UnitPower = function(unit, powerType)
-			if( powerType == SPELL_POWER_HOLY_POWER or powerType == SPELL_POWER_SOUL_SHARDS ) then
+			if( powerType == Enum.PowerType.HolyPower or powerType == Enum.PowerType.SoulShards ) then
 				return 3
-			elseif( powerType == SPELL_POWER_ECLIPSE ) then
-				return getValue("UnitPower", unit, math.random(-100, 100))
-			elseif( powerType == SPELL_POWER_CHI) then
+			elseif( powerType == Enum.PowerType.Chi) then
 				return 4
-			elseif( powerType == SPELL_POWER_SHADOW_ORBS ) then
-				return 5
-			elseif( powerType == SPELL_POWER_BURNING_EMBERS ) then
-				return math.floor(MAX_POWER_PER_EMBER + (MAX_POWER_PER_EMBER / 2))
-			elseif( powerType == SPELL_POWER_DEMONIC_FURY ) then
-				return 100
 			end
 
 			return getValue("UnitPower", unit, math.random(20000, 50000))
@@ -68,18 +60,19 @@ local function createConfigEnv()
 			return getValue("UnitGetTotalAbsorbs", unit, math.random(2500, 5000))
 		end,
 		UnitPowerMax = function(unit, powerType)
-			if( powerType == SPELL_POWER_HOLY_POWER or powerType == SPELL_POWER_SOUL_SHARDS ) then
-				return 3
-			elseif( powerType == SPELL_POWER_ECLIPSE ) then
+			if( powerType == Enum.PowerType.Rage or powerType == Enum.PowerType.Energy or powerType == Enum.PowerType.RunicPower
+			 or powerType == Enum.PowerType.LunarPower or powerType == Enum.PowerType.Maelstrom or powerType == Enum.PowerType.Insanity
+			 or powerType == Enum.PowerType.Fury or powerType == Enum.PowerType.Pain ) then
 				return 100
-			elseif( powerType == SPELL_POWER_LIGHT_FORCE ) then
-				return 4
-			elseif( powerType == SPELL_POWER_SHADOW_ORBS ) then
+			elseif( powerType == Enum.PowerType.Focus ) then
+				return 120
+			elseif( powerType == Enum.PowerType.ComboPoints or powerType == Enum.PowerType.SoulShards or powerType == Enum.PowerType.HolyPower
+			     or powerType == Enum.PowerType.Chi ) then
 				return 5
-			elseif( powerType == SPELL_POWER_BURNING_EMBERS ) then
-				return MAX_POWER_PER_EMBER * 3
-			elseif( powerType == SPELL_POWER_DEMONIC_FURY ) then
-				return 100
+			elseif( powerType == Enum.PowerType.Runes ) then
+				return 6
+			elseif( powerType == Enum.PowerType.ArcaneCharges ) then
+				return 4
 			end
 
 			return 50000
@@ -96,20 +89,19 @@ local function createConfigEnv()
 		UnitAffectingCombat = function() return true end,
 		UnitThreatSituation = function() return 0 end,
 		UnitDetailedThreatSituation = function() return nil end,
-		UnitThreatSituation = function() return 0 end,
 		UnitCastingInfo = function(unit)
-			-- 1 -> 10: spell, rank, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible
+			-- 1 -> 10: spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID
 			local data = unitConfig["UnitCastingInfo" .. unit] or {}
-			if( not data[6] or GetTime() < data[6] ) then
+			if( not data[5] or GetTime() < data[5] ) then
 				data[1] = L["Test spell"]
-				data[2] = L["Rank 1"]
-				data[3] = L["Test spell"]
-				data[4] = "Interface\\Icons\\Spell_Nature_Rejuvenation"
-				data[5] = GetTime() * 1000
-				data[6] = data[5] + 60000
-				data[7] = false
-				data[8] = math.floor(GetTime())
-				data[9] = math.random(0, 100) < 25
+				data[2] = L["Test spell"]
+				data[3] = "Interface\\Icons\\Spell_Nature_Rejuvenation"
+				data[4] = GetTime() * 1000
+				data[5] = data[4] + 60000
+				data[6] = false
+				data[7] = math.floor(GetTime())
+				data[8] = math.random(0, 100) < 25
+				data[9] = 1000
 				unitConfig["UnitCastingInfo" .. unit] = data
 			end
 			
@@ -144,7 +136,7 @@ local function createConfigEnv()
 			local texture = filter == "HELPFUL" and "Interface\\Icons\\Spell_Nature_Rejuvenation" or "Interface\\Icons\\Ability_DualWield"
 			local mod = id % 5
 			local auraType = mod == 0 and "Magic" or mod == 1 and "Curse" or mod == 2 and "Poison" or mod == 3 and "Disease" or "none"
-			return L["Test Aura"], L["Rank 1"], texture, id, auraType, 0, 0, "player", id % 6 == 0
+			return L["Test Aura"], texture, id, auraType, 0, 0, "player", id % 6 == 0
 		end,
 		UnitName = function(unit)
 			local unitID = string.match(unit, "(%d+)")

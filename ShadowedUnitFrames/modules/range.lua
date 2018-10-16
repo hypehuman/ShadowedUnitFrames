@@ -1,34 +1,49 @@
 local Range = {
 	friendly = {
-		["PRIEST"] = GetSpellInfo(2061), -- Flash Heal
-		["DRUID"] = GetSpellInfo(774), -- Rejuvenation
-		["PALADIN"] = GetSpellInfo(85673), -- Word of Glory
+		["PRIEST"] = {
+			(GetSpellInfo(527)), -- Purify
+			(GetSpellInfo(17)), -- Power Word: Shield
+		},
+		["DRUID"] = {
+			(GetSpellInfo(774)), -- Rejuvenation
+			(GetSpellInfo(2782)), -- Remove Corruption
+		},
+		["PALADIN"] = GetSpellInfo(19750), -- Flash of Light
 		["SHAMAN"] = GetSpellInfo(8004), -- Healing Surge
 		["WARLOCK"] = GetSpellInfo(5697), -- Unending Breath
 		["DEATHKNIGHT"] = GetSpellInfo(47541), -- Death Coil
-		["MAGE"] = GetSpellInfo(475), -- Remove Curse
-		["MONK"] = GetSpellInfo(115450) -- Detox
+		["MONK"] = GetSpellInfo(115450), -- Detox
 	},
 	hostile = {
-		["WARRIOR"] = GetSpellInfo(355), -- Taunt
-		["PRIEST"] = GetSpellInfo(589), -- Shadow Word: Pain
-		["DRUID"] = GetSpellInfo(5176),  -- Wrath
-		["PALADIN"] = GetSpellInfo(20271), -- Judgement
+		["DEATHKNIGHT"] = {
+			(GetSpellInfo(47541)), -- Death Coil
+			(GetSpellInfo(49576)), -- Death Grip
+		},
+		["DEMONHUNTER"] = GetSpellInfo(185123), -- Throw Glaive
+		["DRUID"] = GetSpellInfo(8921),  -- Moonfire
+		["HUNTER"] = {
+			(GetSpellInfo(193455)), -- Cobra Shot
+			(GetSpellInfo(19434)), -- Aimed Short
+			(GetSpellInfo(193265)), -- Hatchet Toss
+		},
+		["MAGE"] = {
+			(GetSpellInfo(116)), -- Frostbolt
+			(GetSpellInfo(30451)), -- Arcane Blast
+			(GetSpellInfo(133)), -- Fireball
+		},
+		["MONK"] = GetSpellInfo(115546), -- Provoke
+		["PALADIN"] = GetSpellInfo(62124), -- Hand of Reckoning
+		["PRIEST"] = GetSpellInfo(585), -- Smite
+		--["ROGUE"] = GetSpellInfo(1725), -- Distract
 		["SHAMAN"] = GetSpellInfo(403), -- Lightning Bolt
-		["HUNTER"] = GetSpellInfo(75), -- Auto Shot
 		["WARLOCK"] = GetSpellInfo(686), -- Shadow Bolt
-		["DEATHKNIGHT"] = GetSpellInfo(49576), -- Death Grip
-		["MAGE"] = GetSpellInfo(44614), -- Frostfire Bolt
-		["ROGUE"] = GetSpellInfo(1725), -- Distract
-		["MONK"] = GetSpellInfo(115546) -- Provoke
+		["WARRIOR"] = GetSpellInfo(355), -- Taunt
 	},
-	friendlyAlt = {},
-	hostileAlt = {
-		["MAGE"] = GetSpellInfo(30451) -- Arcane Blast
-	}
 }
 
 ShadowUF:RegisterModule(Range, "range", ShadowUF.L["Range indicator"])
+
+local LSR = LibStub("SpellRange-1.0")
 
 local playerClass = select(2, UnitClass("player"))
 local rangeSpells = {}
@@ -44,10 +59,10 @@ local function checkRange(self)
 		spell = rangeSpells.hostile
 	end
 
-	if( not UnitIsConnected(frame.unit) ) then
+	if( not UnitIsConnected(frame.unit) or not UnitInPhase(frame.unit) ) then
 		frame:SetRangeAlpha(ShadowUF.db.profile.units[frame.unitType].range.oorAlpha)
 	elseif( spell ) then
-		frame:SetRangeAlpha(IsSpellInRange(spell, frame.unit) == 1 and ShadowUF.db.profile.units[frame.unitType].range.inAlpha or ShadowUF.db.profile.units[frame.unitType].range.oorAlpha)
+		frame:SetRangeAlpha(LSR.IsSpellInRange(spell, frame.unit) == 1 and ShadowUF.db.profile.units[frame.unitType].range.inAlpha or ShadowUF.db.profile.units[frame.unitType].range.oorAlpha)
 	-- That didn't work, but they are grouped lets try the actual API for this, it's a bit flaky though and not that useful generally
 	elseif( UnitInRaid(frame.unit) or UnitInParty(frame.unit) ) then
 		frame:SetRangeAlpha(UnitInRange(frame.unit, "player") and ShadowUF.db.profile.units[frame.unitType].range.inAlpha or ShadowUF.db.profile.units[frame.unitType].range.oorAlpha)
@@ -57,28 +72,49 @@ local function checkRange(self)
 	end
 end
 
-local function updateSpellCache(type)
-	rangeSpells[type] = nil
-	if( IsUsableSpell(ShadowUF.db.profile.range[type .. playerClass]) ) then
-		rangeSpells[type] = ShadowUF.db.profile.range[type .. playerClass]
+local function updateSpellCache(category)
+	rangeSpells[category] = nil
+	if( IsUsableSpell(ShadowUF.db.profile.range[category .. playerClass]) ) then
+		rangeSpells[category] = ShadowUF.db.profile.range[category .. playerClass]
 
-	elseif( IsUsableSpell(ShadowUF.db.profile.range[type .. "Alt" .. playerClass]) ) then
-		rangeSpells[type] = ShadowUF.db.profile.range[type .. "Alt" .. playerClass]
+	elseif( IsUsableSpell(ShadowUF.db.profile.range[category .. "Alt" .. playerClass]) ) then
+		rangeSpells[category] = ShadowUF.db.profile.range[category .. "Alt" .. playerClass]
 
-	elseif( IsUsableSpell(Range[type][playerClass]) ) then
-		rangeSpells[type] = Range[type][playerClass]
+	elseif( Range[category][playerClass] ) then
+		if( type(Range[category][playerClass]) == "table" ) then
+			for i = 1, #Range[category][playerClass] do
+				local spell = Range[category][playerClass][i]
+				if( IsUsableSpell(spell) ) then
+					rangeSpells[category] = spell
+					break
+				end
+			end
+		elseif( IsUsableSpell(Range[category][playerClass]) ) then
+			rangeSpells[category] = Range[category][playerClass]
+		end
+	end
+end
 
-	elseif( IsUsableSpell(Range[type .. "Alt"][playerClass]) ) then
-		rangeSpells[type] = Range[type .. "Alt"][playerClass]
+local function createTimer(frame)
+	if( not frame.range.timer ) then
+		frame.range.timer = C_Timer.NewTicker(0.5, checkRange)
+		frame.range.timer.parent = frame
+	end
+end
+
+local function cancelTimer(frame)
+	if( frame.range and frame.range.timer ) then
+		frame.range.timer:Cancel()
+		frame.range.timer = nil
 	end
 end
 
 function Range:ForceUpdate(frame)
 	if( UnitIsUnit(frame.unit, "player") ) then
 		frame:SetRangeAlpha(ShadowUF.db.profile.units[frame.unitType].range.inAlpha)
-		frame.range.timer:Stop()
+		cancelTimer(frame)
 	else
-		frame.range.timer:Play()
+		createTimer(frame)
 		checkRange(frame.range.timer)
 	end
 end
@@ -86,15 +122,12 @@ end
 function Range:OnEnable(frame)
 	if( not frame.range ) then
 		frame.range = CreateFrame("Frame", nil, frame)
-
-		frame.range.timer = frame:CreateOnUpdate(0.50, checkRange)
-		frame.range.timer.parent = frame
 	end
 
 	frame:RegisterNormalEvent("PLAYER_SPECIALIZATION_CHANGED", self, "SpellChecks")
 	frame:RegisterUpdateFunc(self, "ForceUpdate")
 
-	frame.range.timer:Play()
+	createTimer(frame)
 end
 
 function Range:OnLayoutApplied(frame)
@@ -105,7 +138,7 @@ function Range:OnDisable(frame)
 	frame:UnregisterAll(self)
 	
 	if( frame.range ) then
-		frame.range.timer:Stop()
+		cancelTimer(frame)
 		frame:SetRangeAlpha(1.0)
 	end
 end
@@ -115,6 +148,6 @@ function Range:SpellChecks(frame)
 	updateSpellCache("friendly")
 	updateSpellCache("hostile")
 	if( frame.range ) then
-		checkRange(frame.range.timer)
+		self:ForceUpdate(frame)
 	end
 end
